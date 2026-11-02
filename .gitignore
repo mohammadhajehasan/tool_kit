@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+
+# Build artifacts
+build/
+dist/
+*.spec.bak
+
+# PyInstaller
+*.manifest
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Temporary / test files
+_test_*.py
+_scan_out.txt
+_tune_out.txt
+*.tmp
+
+# Generated PDFs (test output)
+صور_محولة.pdf
