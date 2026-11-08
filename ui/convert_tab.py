@@ -69,7 +69,6 @@ class ConvertTab(QWidget):
 
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
-        self.status_label.setStyleSheet("padding: 8px;")
         layout.addWidget(self.status_label)
 
         layout.addStretch()

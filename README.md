@@ -1,36 +1,47 @@
 # 📄 PDF Toolbox — أداة PDF
 
-تطبيق سطح مكتب عربي لمعالجة ملفات PDF: ضغط، تقطيع، دمج، وتحويل صور إلى PDF.
+تطبيق سطح مكتب عربي لمعالجة ملفات PDF وفك ضغط الأرشيفات: ضغط، تقطيع، دمج، تحويل صور، وفك ضغط الزيبارات.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![PySide6](https://img.shields.io/badge/PySide6-6.11-green)
+![Release](https://img.shields.io/badge/Release-v1.1.0-8B5CF6)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## ✨ المميزات
 
 | الأداة | الوصف |
 |--------|-------|
-| 🗜️ **ضغط PDF** | تقليل حجم الملف مع الحفاظ على قابلية القراءة (PyMuPDF / Ghostscript / pikepdf) |
-| ✂️ **تقطيع PDF** | استخراج صفحات محددة أو تقسيم كل صفحة لملف مستقل، مع معاينة مصغّرة تفاعلية |
+| 🗜️ **ضغط PDF** | تقليل حجم الملف مع الحفاظ على قابلية القراءة (PyMuPDF / Ghostscript / pikepdf) + رسم بياني يقارن الحجم قبل وبعد |
+| ✂️ **تقطيع PDF** | استخراج صفحات محددة أو تقسيم كل صفحة لملف مستقل، مع معاينة مصغّرة تفاعلية واختيار بالنقر |
 | 🔗 **دمج PDF** | دمج عدة ملفات في ملف واحد مع إعادة ترتيب بالسحب |
 | 🖼️ **صور إلى PDF** | تحويل JPG, PNG, BMP, TIFF, WEBP, GIF إلى PDF واحد |
+| 📦 **فك ضغط الأرشيفات (جديد v1.1)** | استخراج ملفات ZIP وCBZ وTAR (gz/bz2/xz) وGZ/BZ2/XZ دائماً، و7z وRAR/ZST عبر مكتبات اختيارية |
+
+### 🆕 ما الجديد في v1.1.0
+- **ميزة فك ضغط الأرشيفات** — استخراج دفعي لعدة أرشيفات، خيار الوجهة (بجانب الأرشيف أو مجلد محدد)، حماية من مسارات الخروج (Zip-Slip)، إصلاح أسماء الملفات العربية المشوهة، وزر فتح مجلد النتيجة تلقائياً
+- **نظام تصميم جديد كلياً** — وهاج الأزرار المتدرجة (نيون بنفسجي)، وضع داكن متكامل، تمرير داخلي للصفحات عند الضيقة، شرائط تمرير مخصصة
+- **ثيم تلقائي** — يتبع وضع نظام التشغيل (فاتح/داكن) مع حفظ اختيارك بين الجلسات
+- إصلاحات تباين كثيرة في الوضع الداكن والرسوم البيانية والبطاقات
 
 ## 🎨 التصميم
 
-- واجهة عربية كاملة (RTL) بتصميم Modern Flat
-- ثيمان قابلان للتبديل: بنفسجي / وردي
+- واجهة عربية كاملة (RTL) بنظام تصميم حديث موحّد (`ui/styles.py`)
+- ثلاثة أوضاع: تلقائي (يتبع النظام) / داكن 🌙 / فاتح ☀️ — ويُحفظ الاختيار في `settings.json`
 - منطقة سحب وإفلات (Drag & Drop) لكل الأدوات
-- عمليات غير متزامنة لا تُجمّد الواجهة
+- عمليات غير متزامنة لا تُجمّد الواجهة (خيوط منفصلة `Worker`)
 
 ## 📥 تحميل
 
-حمّل أحدث نسخة جاهزة (exe) من صفحة [Releases](../../releases).
+حمّل أحدث نسخة من صفحة [Releases](../../releases) — متوفر كملف exe مستقل للويندوز.
 
 ## 🚀 التشغيل من المصدر
 
 ```bash
 # تثبيت المتطلبات
 pip install -r requirements.txt
+
+# صيغ الأرشيفات الإضافية (اختياري)
+pip install py7zr rarfile zstandard
 
 # تشغيل التطبيق
 python main.py
@@ -39,7 +50,8 @@ python main.py
 ## 📦 بناء الـ exe
 
 ```bash
-pyinstaller PDF_Toolbox.spec
+pyinstaller PDF_Toolbox.spec --noconfirm
+# الناتج: dist/PDF_Toolbox.exe
 ```
 
 ## 🏗️ البنية
@@ -51,19 +63,20 @@ pdf_toolbox/
 │   ├── compress.py         # الضغط (PyMuPDF / Ghostscript / pikepdf)
 │   ├── split.py            # التقطيع (pypdf)
 │   ├── merge.py            # الدمج (pypdf)
-│   └── convert.py          # تحويل الصور (img2pdf)
+│   ├── convert.py          # تحويل الصور (img2pdf)
+│   └── archive_extract.py  # فك ضغط الأرشيفات (zip/tar/7z/rar)
 ├── ui/                     # واجهة PySide6
-│   ├── main_window.py      # النافذة الرئيسية
-│   ├── compress_tab.py     # تبويب الضغط
-│   ├── split_tab.py        # تبويب التقطيع
+│   ├── main_window.py      # النافذة الرئيسية والثيمات
+│   ├── compress_tab.py     # تبويب الضغط + الرسم البياني
+│   ├── split_tab.py        # تبويب التقطيع + معاينة الصفحات
 │   ├── merge_tab.py        # تبويب الدمج
 │   ├── convert_tab.py      # تبويب التحويل
-│   ├── widgets.py          # مكونات مشتركة (DropZone, Worker...)
-│   ├── styles.py           # تنسيقات QSS
-│   └── gender_dialog.py    # حوار اختيار الثيم
+│   ├── archive_tab.py      # تبويب فك ضغط الأرشيفات
+│   ├── widgets.py          # مكونات مشتركة (DropZone, FileList, Worker)
+│   └── styles.py           # نظام التصميم (فاتح/داكن/تلقائي)
 ├── resources/              # الأيقونات
 ├── requirements.txt
-└── PDF_Toolbox.spec        # إعداد PyInstaller
+└── PDF_Toolbox.spec        # إعداد PyInstaller (ملف مستقل onefile)
 ```
 
 ## 📚 المكتبات المستخدمة
@@ -75,6 +88,7 @@ pdf_toolbox/
 - **Pillow (PIL)** — معالجة الصور
 - **pikepdf** — ضغط احتياطي لـ PDF
 - **matplotlib** — الرسوم البيانية في تبويب الضغط
+- **py7zr** — دعم أرشيفات 7z (اختيارية)
 
 ## 📄 الترخيص
 

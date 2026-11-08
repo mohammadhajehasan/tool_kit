@@ -21,13 +21,11 @@ class ClickablePageCard(QFrame):
 
     def __init__(self, page_index: int, parent=None):
         super().__init__(parent)
+        from ui.styles import page_card_colors
         self.page_index = page_index
         self.is_selected = False
         self.setFixedSize(100, 130)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet(
-            "QFrame { background-color: white; border: 2px solid #e2e8f0; border-radius: 8px; }"
-        )
 
         self.v = QVBoxLayout(self)
         self.v.setContentsMargins(4, 4, 4, 4)
@@ -42,8 +40,13 @@ class ClickablePageCard(QFrame):
         # رقم الصفحة
         self.num_label = QLabel(f"صفحة {page_index + 1}")
         self.num_label.setAlignment(Qt.AlignCenter)
-        self.num_label.setStyleSheet("font-size: 10px; color: #64748b; font-weight: 600;")
         self.v.addWidget(self.num_label)
+
+        self.set_selected(False)
+
+    def _colors(self):
+        from ui.styles import page_card_colors
+        return page_card_colors()
 
     def set_image(self, pixmap: QPixmap):
         """يعرض صورة مصغّرة للصفحة"""
@@ -54,18 +57,23 @@ class ClickablePageCard(QFrame):
             self.image_label.setText("⚠️")
 
     def set_selected(self, selected: bool):
-        """يحدد حالة الاختيار ويحدّث التنسيق"""
+        """يحدد حالة الاختيار ويحدّث التنسيق (متوافق مع الثيم النشط)"""
         self.is_selected = selected
+        cc = self._colors()
         if selected:
             self.setStyleSheet(
-                "QFrame { background-color: #eef2ff; border: 3px solid #6366f1; border-radius: 8px; }"
+                f"QFrame {{ background-color: {cc['bg_sel']}; border: 2.5px solid {cc['border_sel']}; border-radius: 10px; }}"
             )
-            self.num_label.setStyleSheet("font-size: 10px; color: #4f46e5; font-weight: 800;")
+            self.num_label.setStyleSheet(
+                f"font-size: 10px; color: {cc['num_sel']}; font-weight: 800; background: transparent;"
+            )
         else:
             self.setStyleSheet(
-                "QFrame { background-color: white; border: 2px solid #e2e8f0; border-radius: 8px; }"
+                f"QFrame {{ background-color: {cc['bg']}; border: 1.5px solid {cc['border']}; border-radius: 10px; }}"
             )
-            self.num_label.setStyleSheet("font-size: 10px; color: #64748b; font-weight: 600;")
+            self.num_label.setStyleSheet(
+                f"font-size: 10px; color: {cc['num']}; font-weight: 600; background: transparent;"
+            )
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -88,9 +96,6 @@ class PageGrid(QScrollArea):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setMinimumHeight(150)
         self.setMaximumHeight(300)
-        self.setStyleSheet(
-            "QScrollArea { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
-        )
 
         self.container = QWidget()
         self.grid = QGridLayout(self.container)
@@ -200,12 +205,12 @@ class SplitTab(QWidget):
         layout.addWidget(self.drop_zone)
 
         self.file_label = QLabel("")
-        self.file_label.setStyleSheet("color: #334155; font-weight: 600; font-size: 14px; padding: 4px 0;")
+        self.file_label.setObjectName("fileMeta")
         layout.addWidget(self.file_label)
 
         # شبكة المعاينات المصغّرة (قابلة للتمرير والنقر)
         self.preview_title = QLabel("معاينة الصفحات — انقر على الصفحات لاختيارها:")
-        self.preview_title.setStyleSheet("color: #334155; font-weight: 700; font-size: 13px;")
+        self.preview_title.setObjectName("sectionTitle")
         self.preview_title.setVisible(False)
         layout.addWidget(self.preview_title)
 
@@ -218,7 +223,7 @@ class SplitTab(QWidget):
         range_layout = QHBoxLayout()
         range_layout.setSpacing(12)
         range_label = QLabel("الصفحات المطلوبة:")
-        range_label.setStyleSheet("font-weight: 600; color: #334155;")
+        range_label.setObjectName("sectionTitle")
         self.range_input = QLineEdit()
         self.range_input.setPlaceholderText("مثال: 1-3,5,8-10")
         self.range_input.setEnabled(False)
@@ -228,11 +233,11 @@ class SplitTab(QWidget):
         layout.addLayout(range_layout)
 
         self.hint_label = QLabel("")
-        self.hint_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 400;")
+        self.hint_label.setObjectName("hintLabel")
         layout.addWidget(self.hint_label)
 
         self.selected_title = QLabel("")
-        self.selected_title.setStyleSheet("color: #6366f1; font-size: 12px; font-weight: 700;")
+        self.selected_title.setObjectName("accentLabel")
         layout.addWidget(self.selected_title)
 
         # وضع الإخراج
@@ -265,7 +270,6 @@ class SplitTab(QWidget):
 
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
-        self.status_label.setStyleSheet("padding: 8px;")
         layout.addWidget(self.status_label)
 
     def _on_file_selected(self, paths):

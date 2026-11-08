@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use("QtAgg")
 
 from ui.widgets import DropZone, Worker
+from ui.styles import chart_colors
 from core.compress import compress_pdf, format_size, CompressError, ghostscript_available
 
 
@@ -72,13 +73,16 @@ class CompressChart(FigureCanvas):
         self.setVisible(False)
 
     def update_chart(self, original_bytes: int, compressed_bytes: int):
-        """يرسم رسم بياني شريطي يقارن الحجمين"""
+        """يرسم رسم بياني شريطي يقارن الحجمين (متوافق مع الثيم النشط)"""
+        self._last = (original_bytes, compressed_bytes)
+        cc = chart_colors()
+
         self.axes.clear()
         self.setVisible(True)
 
         labels = ["  قبل الضغط  ", "  بعد الضغط  "]
         sizes_mb = [original_bytes / (1024 * 1024), compressed_bytes / (1024 * 1024)]
-        colors = ["#f87171", "#4ade80"]
+        colors = [cc["before"], cc["after"]]
 
         bars = self.axes.barh(labels, sizes_mb, color=colors, height=0.50,
                               edgecolor="white", linewidth=2)
@@ -90,20 +94,27 @@ class CompressChart(FigureCanvas):
             self.axes.text(
                 x_pos, bar.get_y() + bar.get_height() / 2,
                 text, va="center", ha="left",
-                fontsize=11, fontweight="bold", color="#1e293b"
+                fontsize=11, fontweight="bold", color=cc["text"]
             )
 
         self.axes.set_facecolor("none")
-        self.axes.set_xlabel("الحجم (MB)", fontsize=10, color="#64748b", labelpad=6)
-        self.axes.tick_params(axis="y", labelsize=11, colors="#1e293b", length=0, pad=8)
-        self.axes.tick_params(axis="x", labelsize=9, colors="#94a3b8")
+        self.axes.set_xlabel("الحجم (MB)", fontsize=10, color=cc["axis_label"], labelpad=6)
+        self.axes.tick_params(axis="y", labelsize=11, colors=cc["text"], length=0, pad=8)
+        self.axes.tick_params(axis="x", labelsize=9, colors=cc["muted"])
         for spine in self.axes.spines.values():
             spine.set_visible(False)
         self.axes.spines["bottom"].set_visible(True)
-        self.axes.spines["bottom"].set_color("#e2e8f0")
+        self.axes.spines["bottom"].set_color(cc["spine"])
 
         self.fig.set_facecolor("none")
         self.draw()
+
+    def refresh_theme(self):
+        """يعيد الرسم بألوان الثيم الجديد"""
+        if getattr(self, "_last", None):
+            self.update_chart(*self._last)
+        elif self.isVisibleTo(self.parentWidget()):
+            self.setVisible(False)
 
 
 class CompressTab(QWidget):
@@ -134,7 +145,7 @@ class CompressTab(QWidget):
         layout.addWidget(self.drop_zone)
 
         self.file_label = QLabel("")
-        self.file_label.setStyleSheet("color: #334155; font-weight: 600; font-size: 14px; padding: 4px 0;")
+        self.file_label.setObjectName("fileMeta")
         layout.addWidget(self.file_label)
 
         # خيارات الضغط
@@ -192,7 +203,6 @@ class CompressTab(QWidget):
 
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
-        self.status_label.setStyleSheet("padding: 8px;")
         layout.addWidget(self.status_label)
 
         # الرسم البياني

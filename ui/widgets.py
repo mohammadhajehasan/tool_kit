@@ -15,11 +15,12 @@ class DropZone(QFrame):
     filesDropped = Signal(list)
 
     def __init__(self, hint_text="اسحب الملفات هنا أو انقر للاختيار",
-                 sub_text="", file_filter="All Files (*)", multiple=True, parent=None):
+                  sub_text="", file_filter="All Files (*)", multiple=True,
+                  min_height=170, parent=None):
         super().__init__(parent)
         self.setObjectName("dropZone")
         self.setAcceptDrops(True)
-        self.setMinimumHeight(170)
+        self.setFixedHeight(min_height)
         self.file_filter = file_filter
         self.multiple = multiple
         self.setCursor(Qt.PointingHandCursor)

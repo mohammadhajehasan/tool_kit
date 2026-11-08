@@ -31,9 +31,12 @@ desktop.ini
 
 # Temporary / test files
 _test_*.py
-_scan_out.txt
-_tune_out.txt
-*.tmp
+_ui_preview.py
+_arch_test/
+_ui_test/
+settings.json
 
 # Generated PDFs (test output)
 صور_محولة.pdf
+26K0065_مضغوط*.pdf
+filelist.txt
