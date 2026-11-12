@@ -206,7 +206,7 @@ class MainWindow(QMainWindow):
 
         footer_layout.addWidget(self.theme_btn)
 
-        footer = QLabel("v1.1.0  •  MIT License")
+        footer = QLabel("v1.2.0  •  MIT License")
         footer.setObjectName("versionLabel")
         footer.setAlignment(Qt.AlignCenter)
         footer_layout.addWidget(footer)
