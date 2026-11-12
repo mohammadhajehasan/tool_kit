@@ -309,6 +309,76 @@ QLabel#accentLabel {{
     background: transparent;
 }}
 
+/* ============ بطاقات المعلومات والمطور ============ */
+QFrame#aboutCard {{
+    background-color: {bg_hover_soft};
+    border: 1.5px solid {border};
+    border-radius: 16px;
+}}
+QFrame#aboutCard:hover {{
+    border-color: {border_focus};
+}}
+QLabel#cardTitle {{
+    font-size: 15px;
+    font-weight: 800;
+    color: {primary};
+    background: transparent;
+}}
+QLabel#cardBody {{
+    font-size: 13px;
+    color: {text_secondary};
+    background: transparent;
+}}
+QLabel#avatarLabel {{
+    font-size: 40px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 {grad_from}, stop:1 {grad_to});
+    border-radius: 38px;
+    color: {text_on_primary};
+}}
+QLabel#heroName {{
+    font-size: 21px;
+    font-weight: 800;
+    color: {text_primary};
+    background: transparent;
+}}
+QLabel#heroRole {{
+    font-size: 13.5px;
+    color: {text_secondary};
+    background: transparent;
+}}
+QFrame#contactRow {{
+    background-color: {input_bg};
+    border: 1.5px solid {border};
+    border-radius: 12px;
+}}
+QFrame#contactRow:hover {{
+    border-color: {primary};
+    background-color: {bg_card_hover};
+}}
+QLabel#contactIcon {{
+    font-size: 18px;
+    background: transparent;
+}}
+QLabel#contactLabel {{
+    font-size: 13px;
+    font-weight: 600;
+    color: {text_muted};
+    background: transparent;
+}}
+QLabel#contactValue {{
+    font-size: 14px;
+    font-weight: 700;
+    color: {text_primary};
+    background: transparent;
+}}
+QLabel#copyrightLabel {{
+    font-size: 11.5px;
+    color: {text_muted};
+    background: transparent;
+    padding: 8px;
+}}
+
 /* ============ الأزرار ============ */
 QPushButton#primaryBtn {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,

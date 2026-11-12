@@ -10,6 +10,8 @@ from ui.split_tab import SplitTab
 from ui.merge_tab import MergeTab
 from ui.convert_tab import ConvertTab
 from ui.archive_tab import ArchiveTab
+from ui.info_tab import InfoTab
+from ui.developer_tab import DeveloperTab
 from ui.styles import get_style
 
 
@@ -184,6 +186,8 @@ class MainWindow(QMainWindow):
             ("🔗   دمج PDF", "merge"),
             ("🖼️   صور إلى PDF", "convert"),
             ("📦   فك ضغط", "archive"),
+            ("ℹ️   معلومات", "info"),
+            ("👨‍💻   المطور", "developer"),
         ]
         for text, key in items:
             item = QListWidgetItem(text)
@@ -220,9 +224,12 @@ class MainWindow(QMainWindow):
         self.merge_tab = MergeTab()
         self.convert_tab = ConvertTab()
         self.archive_tab = ArchiveTab()
+        self.info_tab = InfoTab()
+        self.developer_tab = DeveloperTab()
 
         for tab in (self.compress_tab, self.split_tab, self.merge_tab,
-                    self.convert_tab, self.archive_tab):
+                    self.convert_tab, self.archive_tab,
+                    self.info_tab, self.developer_tab):
             # تمرير داخلي عند ضيقة النافذة بدلاً من ضغط أو تداخل العناصر
             from PySide6.QtWidgets import QScrollArea
             scroll = QScrollArea()
