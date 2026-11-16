@@ -7,7 +7,8 @@ __pycache__/
 
 # Build artifacts
 build/
-dist/
+dist/*
+!dist/PDF_Toolbox.exe
 *.spec.bak
 
 # PyInstaller
