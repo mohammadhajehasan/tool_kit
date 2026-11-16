@@ -4,6 +4,7 @@
 """
 
 import os
+import tempfile
 import img2pdf
 from PIL import Image
 
@@ -39,7 +40,10 @@ def _normalize_image(path: str, tmp_dir: str) -> str:
             if img.mode in ("RGBA", "LA", "P"):
                 background = Image.new("RGB", img.size, (255, 255, 255))
                 img_converted = img.convert("RGBA") if img.mode != "RGBA" else img
-                background.paste(img_converted, mask=img_converted.split()[-1] if img_converted.mode == "RGBA" else None)
+                background.paste(
+                    img_converted,
+                    mask=img_converted.split()[-1] if img_converted.mode == "RGBA" else None,
+                )
                 img_final = background
             else:
                 img_final = img.convert("RGB")
@@ -56,7 +60,7 @@ def _normalize_image(path: str, tmp_dir: str) -> str:
 def images_to_pdf(
     image_paths: list[str],
     output_path: str,
-    tmp_dir: str,
+    tmp_dir: str | None = None,
     progress_callback=None,
 ) -> str:
     """
@@ -65,7 +69,7 @@ def images_to_pdf(
     المعاملات:
         image_paths: قائمة مرتبة بمسارات الصور
         output_path: مسار حفظ ملف PDF الناتج
-        tmp_dir: مجلد مؤقت لحفظ نسخ الصور المُعالجة (يُنشأ إذا لم يكن موجوداً)
+        tmp_dir: اختياري للتوافق الخلفي — يُتجاهل؛ يُستخدم مجلد مؤقت يُحذف تلقائياً
         progress_callback: دالة اختيارية تُستدعى بـ (index, total, filename)
     """
     if not image_paths:
@@ -77,21 +81,20 @@ def images_to_pdf(
         if not is_supported_image(path):
             raise ConvertError(f"صيغة غير مدعومة: {os.path.basename(path)}")
 
-    os.makedirs(tmp_dir, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="pdf_toolbox_") as work_dir:
+        normalized_paths = []
+        total = len(image_paths)
+        for i, path in enumerate(image_paths, start=1):
+            normalized_paths.append(_normalize_image(path, work_dir))
+            if progress_callback:
+                progress_callback(i, total, os.path.basename(path))
 
-    normalized_paths = []
-    total = len(image_paths)
-    for i, path in enumerate(image_paths, start=1):
-        normalized_paths.append(_normalize_image(path, tmp_dir))
-        if progress_callback:
-            progress_callback(i, total, os.path.basename(path))
+        try:
+            pdf_bytes = img2pdf.convert(normalized_paths)
+        except Exception as e:
+            raise ConvertError(f"فشل إنشاء ملف PDF: {e}") from e
 
-    try:
-        pdf_bytes = img2pdf.convert(normalized_paths)
-    except Exception as e:
-        raise ConvertError(f"فشل إنشاء ملف PDF: {e}") from e
-
-    with open(output_path, "wb") as f:
-        f.write(pdf_bytes)
+        with open(output_path, "wb") as f:
+            f.write(pdf_bytes)
 
     return output_path

@@ -9,6 +9,24 @@ from PySide6.QtCore import Qt, Signal, QThread, QSize
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 
 
+class CancellationToken:
+    """علم إلغاء مشترك بين الواجهة وخيط المعالجة."""
+
+    def __init__(self):
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def cancelled(self) -> bool:
+        return self._cancelled
+
+    def check(self):
+        """يرمي InterruptedError إذا طُلب الإلغاء"""
+        if self._cancelled:
+            raise InterruptedError("تم إلغاء العملية")
+
+
 class DropZone(QFrame):
     """منطقة سحب وإفلات للملفات — تصميم عصري"""
 
@@ -122,22 +140,40 @@ class FileListWidget(QListWidget):
 
 
 class Worker(QThread):
-    """خيط تنفيذ منفصل لتشغيل عمليات معالجة الملفات بدون تجميد الواجهة"""
+    """خيط تنفيذ منفصل مع دعم الإلغاء عبر CancellationToken."""
 
     finished_ok = Signal(object)
     failed = Signal(str)
     progress = Signal(str)
 
-    def __init__(self, fn, *args, **kwargs):
+    def __init__(self, fn, *args, cancel_token: CancellationToken | None = None, **kwargs):
         super().__init__()
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
+        self.cancel_token = cancel_token or CancellationToken()
+
+    def cancel(self):
+        self.cancel_token.cancel()
+        self.requestInterruption()
 
     def run(self):
         try:
+            # مرّر cancel_check تلقائياً إن قبلت الدالة المعامل
+            import inspect
+            try:
+                sig = inspect.signature(self.fn)
+                if "cancel_check" in sig.parameters and "cancel_check" not in self.kwargs:
+                    self.kwargs["cancel_check"] = self.cancel_token.cancelled
+            except (TypeError, ValueError):
+                pass
             result = self.fn(*self.args, **self.kwargs)
+            if self.cancel_token.cancelled():
+                self.failed.emit("تم إلغاء العملية")
+                return
             self.finished_ok.emit(result)
+        except InterruptedError as e:
+            self.failed.emit(str(e) or "تم إلغاء العملية")
         except Exception as e:
             self.failed.emit(str(e))
 

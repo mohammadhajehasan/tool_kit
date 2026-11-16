@@ -1,0 +1,182 @@
+"""
+مساعد مستندات محلي — يلخّص ويجيب عن أسئلة حول محتوى PDF.
+المسار الافتراضي: Ollama محلياً. اختياري: واجهة OpenAI-compatible عبر مفتاح API.
+"""
+
+import json
+import os
+import urllib.error
+import urllib.request
+
+
+class AiError(Exception):
+    pass
+
+
+def extract_document_text(path: str, max_chars: int = 12000) -> str:
+    """يستخرج نص PDF مع قصّه لحد أقصى مناسب للنماذج الخفيفة."""
+    try:
+        import fitz
+    except ImportError as e:
+        raise AiError("PyMuPDF غير مثبّت") from e
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"الملف غير موجود: {path}")
+    doc = fitz.open(path)
+    try:
+        chunks = []
+        total = 0
+        for i, page in enumerate(doc):
+            t = (page.get_text("text") or "").strip()
+            if not t:
+                continue
+            header = f"\n--- صفحة {i + 1} ---\n"
+            piece = header + t
+            if total + len(piece) > max_chars:
+                remain = max_chars - total
+                if remain > 100:
+                    chunks.append(piece[:remain])
+                break
+            chunks.append(piece)
+            total += len(piece)
+        text = "".join(chunks).strip()
+        if not text:
+            raise AiError(
+                "لا يوجد نص قابل للاستخراج في الملف.\n"
+                "جرّب أولاً أداة OCR للمستندات الممسوحة."
+            )
+        return text
+    finally:
+        doc.close()
+
+
+def ollama_available(base_url: str = "http://127.0.0.1:11434") -> bool:
+    try:
+        req = urllib.request.Request(f"{base_url.rstrip('/')}/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
+
+def list_ollama_models(base_url: str = "http://127.0.0.1:11434") -> list[str]:
+    try:
+        req = urllib.request.Request(f"{base_url.rstrip('/')}/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return [m.get("name") for m in data.get("models", []) if m.get("name")]
+    except Exception:
+        return []
+
+
+def _chat_ollama(messages: list[dict], model: str, base_url: str) -> str:
+    payload = json.dumps({
+        "model": model,
+        "messages": messages,
+        "stream": False,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"{base_url.rstrip('/')}/api/chat",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return (data.get("message") or {}).get("content") or ""
+    except urllib.error.URLError as e:
+        raise AiError(f"تعذّر الاتصال بـ Ollama: {e}") from e
+
+
+def _chat_openai_compatible(
+    messages: list[dict],
+    model: str,
+    api_key: str,
+    base_url: str = "https://api.openai.com/v1",
+) -> str:
+    payload = json.dumps({
+        "model": model,
+        "messages": messages,
+        "temperature": 0.3,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"{base_url.rstrip('/')}/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return data["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="ignore")
+        raise AiError(f"خطأ API ({e.code}): {body[:300]}") from e
+    except Exception as e:
+        raise AiError(f"فشل طلب API: {e}") from e
+
+
+def ask_about_document(
+    pdf_path: str,
+    question: str,
+    *,
+    mode: str = "ollama",
+    model: str = "llama3.2",
+    api_key: str = "",
+    api_base: str = "https://api.openai.com/v1",
+    ollama_base: str = "http://127.0.0.1:11434",
+    cancel_check=None,
+) -> str:
+    """
+    يسأل عن محتوى المستند.
+    mode: 'ollama' | 'api'
+    """
+    if cancel_check and cancel_check():
+        raise AiError("تم إلغاء العملية")
+    text = extract_document_text(pdf_path)
+    system = (
+        "أنت مساعد مستندات يعمل محلياً ويحافظ على الخصوصية. "
+        "أجب بالعربية باختصار ووضوح اعتماداً فقط على نص المستند المرفق. "
+        "إن لم تجد المعلومة في النص فقل ذلك صراحة."
+    )
+    user = f"نص المستند:\n{text}\n\nسؤال المستخدم:\n{question}"
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    if mode == "api":
+        if not api_key.strip():
+            raise AiError("أدخل مفتاح API أولاً")
+        return _chat_openai_compatible(messages, model=model or "gpt-4o-mini", api_key=api_key, base_url=api_base)
+    if not ollama_available(ollama_base):
+        raise AiError(
+            "Ollama غير متاح محلياً.\n"
+            "ثبّته من https://ollama.com وشغّل نموذجاً مثل: ollama run llama3.2\n"
+            "أو استخدم وضع API السحابي الاختياري."
+        )
+    return _chat_ollama(messages, model=model or "llama3.2", base_url=ollama_base)
+
+
+def summarize_document(
+    pdf_path: str,
+    *,
+    mode: str = "ollama",
+    model: str = "llama3.2",
+    api_key: str = "",
+    api_base: str = "https://api.openai.com/v1",
+    ollama_base: str = "http://127.0.0.1:11434",
+    cancel_check=None,
+) -> str:
+    return ask_about_document(
+        pdf_path,
+        "لخّص هذا المستند في نقاط واضحة، واذكر أهم البنود إن وُجدت (عقود/تقارير).",
+        mode=mode,
+        model=model,
+        api_key=api_key,
+        api_base=api_base,
+        ollama_base=ollama_base,
+        cancel_check=cancel_check,
+    )

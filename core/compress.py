@@ -11,11 +11,14 @@
 ملاحظة: الحفاظ على قابلية القراءة والجودة هو الأولوية القصوى.
 """
 
+import logging
 import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+logger = logging.getLogger("pdf_toolbox.compress")
 
 
 class CompressError(Exception):
@@ -282,22 +285,31 @@ def compress_pdf(
             try:
                 result = _compress_with_ghostscript(input_path, output_path, level, progress_callback)
                 result["method"] = "Ghostscript"
+                logger.info("الضغط نجح عبر Ghostscript: %s", output_path)
                 return result
-            except CompressError:
-                pass  # ننتقل إلى البديل
+            except CompressError as e:
+                logger.warning("فشل Ghostscript، الانتقال للبديل: %s", e)
+        else:
+            logger.warning("طُلب Ghostscript لكنه غير متاح على النظام")
 
     # 2) PyMuPDF — الضغط الافتراضي الفعّال
     try:
         result = _compress_with_pymupdf(input_path, output_path, level, progress_callback)
         result["method"] = "PyMuPDF"
+        logger.info("الضغط نجح عبر PyMuPDF: %s", output_path)
         return result
-    except CompressError:
-        pass
+    except CompressError as e:
+        logger.warning("فشل PyMuPDF، الانتقال لـ pikepdf: %s", e)
 
     # 3) pikepdf — بديل احتياطي
-    result = _compress_with_pikepdf(input_path, output_path, level, progress_callback)
-    result["method"] = "pikepdf"
-    return result
+    try:
+        result = _compress_with_pikepdf(input_path, output_path, level, progress_callback)
+        result["method"] = "pikepdf"
+        logger.info("الضغط نجح عبر pikepdf: %s", output_path)
+        return result
+    except CompressError as e:
+        logger.error("فشل كل محركات الضغط: %s", e)
+        raise
 
 
 def format_size(num_bytes: int) -> str:

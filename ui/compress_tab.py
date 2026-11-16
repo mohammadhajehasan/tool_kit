@@ -1,18 +1,15 @@
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
-    QProgressBar, QFileDialog, QButtonGroup, QRadioButton, QMessageBox,
-    QSizePolicy, QCheckBox
+    QProgressBar, QFileDialog, QButtonGroup, QRadioButton, QSizePolicy, QCheckBox
 )
-from PySide6.QtCore import Qt
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-import matplotlib
-matplotlib.use("QtAgg")
+from PySide6.QtCore import Qt, QRectF
+from PySide6.QtGui import QPainter, QColor, QFont, QPen
 
-from ui.widgets import DropZone, Worker
+from ui.widgets import DropZone, Worker, CancellationToken
 from ui.styles import chart_colors
-from core.compress import compress_pdf, format_size, CompressError, ghostscript_available
+from ui.toast import show_toast
+from core.compress import compress_pdf, format_size, ghostscript_available
 
 
 class OptionCard(QFrame):
@@ -58,63 +55,86 @@ class OptionCard(QFrame):
         super().mousePressEvent(event)
 
 
-class CompressChart(FigureCanvas):
-    """رسم بياني شريطي يقارن حجم الملف قبل وبعد الضغط"""
+class CompressChart(QWidget):
+    """رسم شريطي خفيف عبر QPainter — بديل عن matplotlib."""
 
-    def __init__(self, parent=None, width=5, height=2.5, dpi=100):
-        self.fig = Figure(figsize=(width, height), dpi=dpi)
-        self.fig.set_facecolor("none")
-        super().__init__(self.fig)
-        self.setParent(parent)
-        self.axes = self.fig.add_subplot(111)
-        self.fig.subplots_adjust(left=0.22, right=0.82, top=0.88, bottom=0.38)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(140)
+        self.setMaximumHeight(180)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setMaximumHeight(200)
         self.setVisible(False)
+        self._last = None  # (orig_bytes, comp_bytes)
 
     def update_chart(self, original_bytes: int, compressed_bytes: int):
-        """يرسم رسم بياني شريطي يقارن الحجمين (متوافق مع الثيم النشط)"""
         self._last = (original_bytes, compressed_bytes)
-        cc = chart_colors()
-
-        self.axes.clear()
         self.setVisible(True)
-
-        labels = ["  قبل الضغط  ", "  بعد الضغط  "]
-        sizes_mb = [original_bytes / (1024 * 1024), compressed_bytes / (1024 * 1024)]
-        colors = [cc["before"], cc["after"]]
-
-        bars = self.axes.barh(labels, sizes_mb, color=colors, height=0.50,
-                              edgecolor="white", linewidth=2)
-
-        max_val = max(sizes_mb) if max(sizes_mb) > 0 else 1
-        for bar, size in zip(bars, sizes_mb):
-            text = f"{size:.2f} MB" if size >= 0.01 else f"{size * 1024:.0f} KB"
-            x_pos = bar.get_width() + max_val * 0.04
-            self.axes.text(
-                x_pos, bar.get_y() + bar.get_height() / 2,
-                text, va="center", ha="left",
-                fontsize=11, fontweight="bold", color=cc["text"]
-            )
-
-        self.axes.set_facecolor("none")
-        self.axes.set_xlabel("الحجم (MB)", fontsize=10, color=cc["axis_label"], labelpad=6)
-        self.axes.tick_params(axis="y", labelsize=11, colors=cc["text"], length=0, pad=8)
-        self.axes.tick_params(axis="x", labelsize=9, colors=cc["muted"])
-        for spine in self.axes.spines.values():
-            spine.set_visible(False)
-        self.axes.spines["bottom"].set_visible(True)
-        self.axes.spines["bottom"].set_color(cc["spine"])
-
-        self.fig.set_facecolor("none")
-        self.draw()
+        self.update()
 
     def refresh_theme(self):
-        """يعيد الرسم بألوان الثيم الجديد"""
-        if getattr(self, "_last", None):
+        if self._last:
             self.update_chart(*self._last)
-        elif self.isVisibleTo(self.parentWidget()):
+        elif self.isVisible():
             self.setVisible(False)
+
+    def paintEvent(self, event):
+        if not self._last:
+            return
+        orig, comp = self._last
+        cc = chart_colors()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        w, h = self.width(), self.height()
+        margin_l, margin_r, margin_t, margin_b = 100, 80, 16, 28
+        chart_w = w - margin_l - margin_r
+        bar_h = 28
+        gap = 22
+        max_val = max(orig, comp, 1)
+
+        rows = [
+            ("قبل الضغط", orig, QColor(cc["before"])),
+            ("بعد الضغط", comp, QColor(cc["after"])),
+        ]
+        y0 = margin_t
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        painter.setFont(font)
+
+        for i, (label, value, color) in enumerate(rows):
+            y = y0 + i * (bar_h + gap)
+            painter.setPen(QColor(cc["text"]))
+            painter.drawText(QRectF(8, y, margin_l - 16, bar_h), Qt.AlignVCenter | Qt.AlignRight, label)
+
+            bar_w = max(4.0, (value / max_val) * chart_w)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(color)
+            painter.drawRoundedRect(QRectF(margin_l, y, bar_w, bar_h), 8, 8)
+
+            size_mb = value / (1024 * 1024)
+            text = f"{size_mb:.2f} MB" if size_mb >= 0.01 else f"{size_mb * 1024:.0f} KB"
+            painter.setPen(QColor(cc["text"]))
+            painter.drawText(
+                QRectF(margin_l + bar_w + 8, y, margin_r - 12, bar_h),
+                Qt.AlignVCenter | Qt.AlignLeft,
+                text,
+            )
+
+        # محور سفلي بسيط
+        painter.setPen(QPen(QColor(cc["spine"]), 1))
+        baseline = y0 + 2 * (bar_h + gap) - gap + 4
+        painter.drawLine(margin_l, baseline, margin_l + chart_w, baseline)
+        painter.setPen(QColor(cc["axis_label"]))
+        small = QFont()
+        small.setPointSize(9)
+        painter.setFont(small)
+        painter.drawText(
+            QRectF(margin_l, baseline + 2, chart_w, 20),
+            Qt.AlignCenter,
+            "الحجم (MB)",
+        )
+        painter.end()
 
 
 class CompressTab(QWidget):
@@ -148,7 +168,6 @@ class CompressTab(QWidget):
         self.file_label.setObjectName("fileMeta")
         layout.addWidget(self.file_label)
 
-        # خيارات الضغط
         options_layout = QHBoxLayout()
         options_layout.setSpacing(12)
         self.button_group = QButtonGroup(self)
@@ -170,7 +189,6 @@ class CompressTab(QWidget):
         options_layout.addWidget(self.extreme_card)
         layout.addLayout(options_layout)
 
-        # خيار استخدام Ghostscript (اختياري — لضغط أقوى)
         self.gs_check = QCheckBox("استخدام Ghostscript لضغط أقوى (اختياري)")
         self.gs_available = ghostscript_available()
         if self.gs_available:
@@ -186,13 +204,17 @@ class CompressTab(QWidget):
             )
         layout.addWidget(self.gs_check)
 
-        # زر التنفيذ
         run_layout = QHBoxLayout()
+        self.cancel_btn = QPushButton("إلغاء")
+        self.cancel_btn.setObjectName("dangerBtn")
+        self.cancel_btn.setEnabled(False)
+        self.cancel_btn.clicked.connect(self._cancel)
         self.run_btn = QPushButton("ضغط الملف")
         self.run_btn.setObjectName("primaryBtn")
         self.run_btn.setEnabled(False)
         self.run_btn.clicked.connect(self._run_compress)
         run_layout.addStretch()
+        run_layout.addWidget(self.cancel_btn)
         run_layout.addWidget(self.run_btn)
         layout.addLayout(run_layout)
 
@@ -205,18 +227,20 @@ class CompressTab(QWidget):
         self.status_label.setWordWrap(True)
         layout.addWidget(self.status_label)
 
-        # الرسم البياني
         self.chart = CompressChart(self)
         layout.addWidget(self.chart)
 
         layout.addStretch()
+
+    def refresh_theme(self):
+        self.chart.refresh_theme()
 
     def _on_file_selected(self, paths):
         if not paths:
             return
         path = paths[0]
         if not path.lower().endswith(".pdf"):
-            QMessageBox.warning(self, "خطأ", "الرجاء اختيار ملف PDF فقط")
+            show_toast(self, "الرجاء اختيار ملف PDF فقط", "warning")
             return
         self.selected_file = path
         size = format_size(os.path.getsize(path))
@@ -224,6 +248,10 @@ class CompressTab(QWidget):
         self.run_btn.setEnabled(True)
         self.status_label.setText("")
         self.chart.setVisible(False)
+
+    def _cancel(self):
+        if self.worker:
+            self.worker.cancel()
 
     def _run_compress(self):
         if not self.selected_file:
@@ -240,6 +268,7 @@ class CompressTab(QWidget):
             return
 
         self.run_btn.setEnabled(False)
+        self.cancel_btn.setEnabled(True)
         self.progress.setVisible(True)
         self.status_label.setText("⏳  جاري الضغط... يرجى الانتظار")
         self.status_label.setObjectName("")
@@ -247,8 +276,11 @@ class CompressTab(QWidget):
         self.style().polish(self.status_label)
         self.chart.setVisible(False)
 
-        self.worker = Worker(compress_pdf, self.selected_file, output_path,
-                             level=level, use_ghostscript=use_gs)
+        token = CancellationToken()
+        self.worker = Worker(
+            compress_pdf, self.selected_file, output_path,
+            level=level, use_ghostscript=use_gs, cancel_token=token,
+        )
         self.worker.finished_ok.connect(lambda res: self._on_success(res, output_path))
         self.worker.failed.connect(self._on_failure)
         self.worker.start()
@@ -256,6 +288,7 @@ class CompressTab(QWidget):
     def _on_success(self, result, output_path):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(False)
 
         orig = format_size(result["original_size"])
         comp = format_size(result["compressed_size"])
@@ -263,7 +296,7 @@ class CompressTab(QWidget):
         method = result.get("method", "غير معروف")
 
         if pct > 0:
-            pct_text = f"تم توفير {pct}% من الحجم 🎉"
+            pct_text = f"تم توفير {pct}% من الحجم"
             emoji = "✅"
             style = "statusSuccess"
         else:
@@ -281,14 +314,16 @@ class CompressTab(QWidget):
         )
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
-
         self.chart.update_chart(result["original_size"], result["compressed_size"])
+        show_toast(self, f"تم الضغط عبر {method} — توفير {pct}%", "success")
 
     def _on_failure(self, error_msg):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(False)
         self.status_label.setObjectName("statusError")
         self.status_label.setText(f"❌  فشلت العملية:\n{error_msg}")
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
         self.chart.setVisible(False)
+        show_toast(self, error_msg, "error")

@@ -167,14 +167,34 @@ def _extract_tar(src: str, mode: str, dest: str, progress=None) -> tuple[int, in
 
 
 def _extract_7z(src: str, dest: str, progress=None) -> tuple[int, int]:
+    """يفك ضغط 7z مع فحص كل مسار لمنع Zip-Slip (لا يستخدم extractall مباشرة)"""
     if not PY7ZR_AVAILABLE:
         raise ArchiveError(
             "صيغة 7z تحتاج مكتبة py7zr.\nثبّتها بـ: pip install py7zr"
         )
+    files, skipped = 0, 0
     with py7zr.SevenZipFile(src, mode='r') as z:
-        z.extractall(dest)
-    files = sum(len(fnames) for _root, _dirs, fnames in os.walk(dest))
-    return files, 0
+        names = [n for n in z.getnames() if n and not n.endswith(('/', '\\'))]
+        safe_names = []
+        for name in names:
+            target = _safe_join(dest, name)
+            if target is None or not _is_within(dest, target):
+                skipped += 1
+                continue
+            safe_names.append(name)
+
+        total = len(safe_names) or 1
+        # استخراج آمن: أسماء مُصفّاة فقط (بدون extractall)
+        if safe_names:
+            z.extract(path=dest, targets=safe_names)
+
+        for i, name in enumerate(safe_names):
+            target = _safe_join(dest, name)
+            if target and os.path.isfile(target) and _is_within(dest, target):
+                files += 1
+            if progress:
+                progress(f"📦 فك ضغط: {os.path.basename(name)}", int((i + 1) / total * 100))
+    return files, skipped
 
 
 def _extract_rar(src: str, dest: str, progress=None) -> tuple[int, int]:

@@ -1,12 +1,12 @@
 import os
-import tempfile
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFileDialog,
-    QMessageBox, QProgressBar
+    QProgressBar
 )
 
 from ui.widgets import DropZone, FileListWidget, Worker, make_toolbar_button
-from core.convert import images_to_pdf, is_supported_image, ConvertError, SUPPORTED_EXTENSIONS
+from ui.toast import show_toast
+from core.convert import images_to_pdf, is_supported_image
 
 
 IMAGE_FILTER = "Images (*.jpg *.jpeg *.png *.bmp *.tiff *.tif *.webp *.gif)"
@@ -77,7 +77,7 @@ class ConvertTab(QWidget):
         valid_paths = [p for p in paths if is_supported_image(p)]
         skipped = len(paths) - len(valid_paths)
         if skipped:
-            QMessageBox.information(self, "تنبيه", f"تم تجاهل {skipped} ملف بصيغة غير مدعومة")
+            show_toast(self, f"تم تجاهل {skipped} ملف بصيغة غير مدعومة", "warning")
         self.file_list.add_files(valid_paths)
 
     def _update_state(self):
@@ -99,8 +99,7 @@ class ConvertTab(QWidget):
         self.progress.setVisible(True)
         self.status_label.setText("جاري التحويل...")
 
-        tmp_dir = os.path.join(tempfile.gettempdir(), "pdf_toolbox_tmp")
-        self.worker = Worker(images_to_pdf, paths, output_path, tmp_dir)
+        self.worker = Worker(images_to_pdf, paths, output_path)
         self.worker.finished_ok.connect(lambda res: self._on_success(output_path, len(paths)))
         self.worker.failed.connect(self._on_failure)
         self.worker.start()
@@ -112,6 +111,7 @@ class ConvertTab(QWidget):
         self.status_label.setText(f"✅ تم تحويل {count} صورة إلى PDF بنجاح\nحُفظ في: {output_path}")
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
+        show_toast(self, f"تم تحويل {count} صورة إلى PDF", "success")
 
     def _on_failure(self, error_msg):
         self.progress.setVisible(False)
@@ -120,3 +120,4 @@ class ConvertTab(QWidget):
         self.status_label.setText(f"❌ فشلت العملية: {error_msg}")
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
+        show_toast(self, error_msg, "error")

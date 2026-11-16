@@ -95,7 +95,7 @@ def set_active_theme(theme: str):
 
 
 def chart_colors() -> dict:
-    """ألوان جاهزة للرسوم البيانية (matplotlib) متوافقة مع الثيم النشط"""
+    """ألوان جاهزة لرسم مقارنة الحجم (QPainter) متوافقة مع الثيم النشط"""
     if CURRENT_THEME == 'dark':
         return {
             'text': '#C3CDE4', 'muted': '#5D6B8C', 'spine': '#263252',

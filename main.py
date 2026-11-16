@@ -6,10 +6,16 @@
 import sys
 import os
 import json
+import logging
 
 # يضمن استيراد الحزم الداخلية (core, ui) بشكل صحيح سواء عند التشغيل
 # المباشر بـ Python أو بعد التجميع كـ exe عبر PyInstaller
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 # تحميل الإعدادات المحفوظة
 SETTINGS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
