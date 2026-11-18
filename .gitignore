@@ -52,6 +52,17 @@ _do_commit.py
 _commit_msg.txt
 _make_release.py
 _docs_shots.py
+_check_release.py
+_upload_fix.py
+_retrigger_ci.py
+_wait_ci.py
+_push.py
+_delete_*.py
+_release_v2.py
+_check_rel.py
+_check_ci.py
+_watch_*.py
+_final_check.py
 
 # Generated PDFs (test output)
 صور_محولة.pdf
