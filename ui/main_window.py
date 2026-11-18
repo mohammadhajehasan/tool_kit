@@ -16,11 +16,14 @@ from ui.convert_tab import ConvertTab
 from ui.archive_tab import ArchiveTab
 from ui.pdf2img_tab import Pdf2ImgTab
 from ui.extract_tab import ExtractTab
+from ui.export_tab import ExportTab
+from ui.diff_tab import DiffTab
 from ui.pages_tab import PagesTab
 from ui.stamp_tab import StampTab
 from ui.protect_tab import ProtectTab
 from ui.ocr_tab import OcrTab
 from ui.repair_tab import RepairTab
+from ui.ai_tab import AiTab
 from ui.info_tab import InfoTab
 from ui.developer_tab import DeveloperTab
 from ui.styles import get_style
@@ -207,18 +210,20 @@ class MainWindow(QMainWindow):
 
         sections = {
             "sec_core": ["compress", "split", "merge", "convert"],
-            "sec_convert": ["pdf2img", "extract", "ocr"],
+            "sec_convert": ["pdf2img", "extract", "export", "ocr"],
             "sec_edit": ["pages", "stamp", "protect", "repair"],
-            "sec_extra": ["archive"],
+            "sec_extra": ["diff", "ai", "archive"],
             "sec_system": ["info", "developer"],
         }
         labels = {
             "compress": tr("t_compress"), "split": tr("t_split"),
             "merge": tr("t_merge"), "convert": tr("t_convert"),
             "pdf2img": tr("t_pdf2img"), "extract": tr("t_extract"),
-            "ocr": tr("t_ocr"), "pages": tr("t_pages"),
+            "export": tr("t_export"), "ocr": tr("t_ocr"),
+            "pages": tr("t_pages"),
             "stamp": tr("t_stamp"), "protect": tr("t_protect"),
-            "repair": tr("t_repair"), "archive": tr("t_archive"),
+            "repair": tr("t_repair"), "diff": tr("t_diff"),
+            "ai": tr("t_ai"), "archive": tr("t_archive"),
             "info": tr("t_info"), "developer": tr("t_developer"),
         }
         self._tool_rows: dict[str, int] = {}
@@ -276,24 +281,28 @@ class MainWindow(QMainWindow):
         self.archive_tab = ArchiveTab()
         self.pdf2img_tab = Pdf2ImgTab()
         self.extract_tab = ExtractTab()
+        self.export_tab = ExportTab()
+        self.diff_tab = DiffTab()
         self.pages_tab = PagesTab()
         self.stamp_tab = StampTab()
         self.protect_tab = ProtectTab()
         self.ocr_tab = OcrTab()
         self.repair_tab = RepairTab()
+        self.ai_tab = AiTab()
         self.info_tab = InfoTab()
         self.developer_tab = DeveloperTab()
 
         tabs = [
             self.compress_tab, self.split_tab, self.merge_tab, self.convert_tab,
-            self.pdf2img_tab, self.extract_tab, self.ocr_tab,
+            self.pdf2img_tab, self.extract_tab, self.export_tab, self.ocr_tab,
             self.pages_tab, self.stamp_tab, self.protect_tab, self.repair_tab,
-            self.archive_tab, self.info_tab, self.developer_tab,
+            self.diff_tab, self.ai_tab, self.archive_tab,
+            self.info_tab, self.developer_tab,
         ]
         # ترتيب التبويبات في الـstack — مفتاح الأداة → فهرس الصفحة
         tab_keys = ["compress", "split", "merge", "convert", "pdf2img", "extract",
-                    "ocr", "pages", "stamp", "protect", "repair", "archive",
-                    "info", "developer"]
+                    "export", "ocr", "pages", "stamp", "protect", "repair",
+                    "diff", "ai", "archive", "info", "developer"]
         self._tab_index = {k: i for i, k in enumerate(tab_keys)}
         for tab in tabs:
             # تمرير داخلي عند ضيقة النافذة بدلاً من ضغط أو تداخل العناصر
@@ -326,7 +335,7 @@ class MainWindow(QMainWindow):
     def _install_shortcuts(self):
         """اختصارات لوحة المفاتيح: Ctrl+1..9,0 للأدوات الأولى وCtrl+K للبحث."""
         keys_order = ["compress", "split", "merge", "convert", "pdf2img",
-                      "extract", "ocr", "pages", "stamp", "protect"]
+                      "extract", "export", "ocr", "pages", "stamp"]
         for n, key in enumerate(keys_order, start=1):
             seq = str(n) if n <= 9 else "0"
             sc = QShortcut(QKeySequence(f"Ctrl+{seq}"), self)
@@ -344,9 +353,11 @@ class MainWindow(QMainWindow):
             "compress": tr("t_compress"), "split": tr("t_split"),
             "merge": tr("t_merge"), "convert": tr("t_convert"),
             "pdf2img": tr("t_pdf2img"), "extract": tr("t_extract"),
-            "ocr": tr("t_ocr"), "pages": tr("t_pages"),
+            "export": tr("t_export"), "ocr": tr("t_ocr"),
+            "pages": tr("t_pages"),
             "stamp": tr("t_stamp"), "protect": tr("t_protect"),
-            "repair": tr("t_repair"), "archive": tr("t_archive"),
+            "repair": tr("t_repair"), "diff": tr("t_diff"),
+            "ai": tr("t_ai"), "archive": tr("t_archive"),
             "info": tr("t_info"), "developer": tr("t_developer"),
         }
         actions = [(labels[k], k) for k in self._tool_rows]

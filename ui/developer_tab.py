@@ -6,11 +6,14 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 
+from ui.i18n import tr
+
 
 class ContactRow(QFrame):
     """صف تواصل: أيقونة + وصف + قيمة قابلة للنقر"""
 
-    def __init__(self, icon: str, label: str, value: str, url: str = None, parent=None):
+    def __init__(self, icon: str, label: str, value: str, url: str = None, parent=None,
+                 btn_text: str = "فتح"):
         super().__init__(parent)
         self.setObjectName("contactRow")
         self.url = url
@@ -36,7 +39,7 @@ class ContactRow(QFrame):
         row.addWidget(value_lbl, 1)
 
         if url:
-            open_btn = QPushButton("فتح")
+            open_btn = QPushButton(btn_text)
             open_btn.setObjectName("secondaryBtn")
             open_btn.setCursor(Qt.PointingHandCursor)
             open_btn.setFixedHeight(34)
@@ -50,12 +53,17 @@ class DeveloperTab(QWidget):
         self._build_ui()
 
     def _build_ui(self):
+        ar = tr("app_name") == "أداة PDF"
+        open_txt = "فتح" if ar else "Open"
+
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
-        title = QLabel("عن المطور")
+        title = QLabel("عن المطور" if ar else "About the Developer")
         title.setObjectName("pageTitle")
-        desc = QLabel("صاحب الفضل في تصميم وتطوير هذا النظام")
+        desc = QLabel(
+            "صاحب الفضل في تصميم وتطوير هذا النظام"
+            if ar else "The person behind the design and development of this system")
         desc.setObjectName("pageDesc")
         layout.addWidget(title)
         layout.addWidget(desc)
@@ -73,18 +81,23 @@ class DeveloperTab(QWidget):
         avatar.setAlignment(Qt.AlignCenter)
         avatar.setFixedSize(76, 76)
 
-        name = QLabel("المهندس أحمد مصطفى الفرحات")
+        name = QLabel(
+            "المهندس أحمد مصطفى الفرحات"
+            if ar else "Eng. Ahmad Mustafa Al-Farhat")
         name.setObjectName("heroName")
         name.setAlignment(Qt.AlignCenter)
 
         role = QLabel(
             "مهندس علوم حاسب — تطوير برمجيات وأنظمة تعمل بالذكاء الاصطناعي"
-        )
+            if ar else
+            "Computer Engineer — Software development and AI-powered systems")
         role.setObjectName("heroRole")
         role.setWordWrap(True)
         role.setAlignment(Qt.AlignCenter)
 
-        credit = QLabel("مصمم ومطور نظام أداة PDF بالكامل")
+        credit = QLabel(
+            "مصمم ومطور نظام أداة PDF بالكامل"
+            if ar else "Designer and developer of PDF Toolbox")
         credit.setObjectName("hintLabel")
         credit.setAlignment(Qt.AlignCenter)
 
@@ -101,22 +114,27 @@ class DeveloperTab(QWidget):
         contacts_layout.setContentsMargins(12, 10, 12, 10)
         contacts_layout.setSpacing(6)
 
-        head = QLabel("📞  معلومات التواصل")
+        head = QLabel("📞  " + ("معلومات التواصل" if ar else "Contact information"))
         head.setObjectName("cardTitle")
         contacts_layout.addWidget(head)
 
         contacts_layout.addWidget(ContactRow(
-            "📱", "الهاتف", "+963 991 758 886", "tel:+963991758886"))
+            "📱", "الهاتف" if ar else "Phone", "+963 991 758 886",
+            "tel:+963991758886", btn_text=open_txt))
         contacts_layout.addWidget(ContactRow(
-            "💬", "واتساب", "+963 991 758 886", "https://wa.me/963991758886"))
+            "💬", "واتساب" if ar else "WhatsApp", "+963 991 758 886",
+            "https://wa.me/963991758886", btn_text=open_txt))
         contacts_layout.addWidget(ContactRow(
-            "✉️", "البريد الإلكتروني", "ahmadalfarahat099175@gmail.com",
-            "mailto:ahmadalfarahat099175@gmail.com"))
+            "✉️", "البريد الإلكتروني" if ar else "Email",
+            "ahmadalfarahat099175@gmail.com",
+            "mailto:ahmadalfarahat099175@gmail.com", btn_text=open_txt))
 
         layout.addWidget(contacts)
 
         # ===== حقوق النشر =====
-        copyright = QLabel("© 2026 المهندس أحمد مصطفى الفرحات — جميع الحقوق محفوظة")
+        copyright = QLabel(
+            "© 2026 المهندس أحمد مصطفى الفرحات — جميع الحقوق محفوظة"
+            if ar else "© 2026 Eng. Ahmad Mustafa Al-Farhat — All rights reserved")
         copyright.setObjectName("copyrightLabel")
         copyright.setAlignment(Qt.AlignCenter)
         layout.addWidget(copyright)
