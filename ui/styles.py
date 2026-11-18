@@ -309,6 +309,111 @@ QLabel#accentLabel {{
     background: transparent;
 }}
 
+/* ============ أقسام الشريط الجانبي ============ */
+QLabel#sidebarSection {{
+    color: {text_sidebar};
+    font-size: 10.5px;
+    font-weight: 800;
+    background: transparent;
+    padding: 0px 10px 8px 10px;
+    letter-spacing: 0.4px;
+}}
+
+/* ============ عناصر الإدخال الإضافية ============ */
+QComboBox {{
+    background-color: {input_bg};
+    color: {text_primary};
+    border: 1.5px solid {input_border};
+    border-radius: 10px;
+    padding: 6px 14px;
+    min-height: 30px;
+    font-size: 13px;
+}}
+QComboBox:hover {{
+    border-color: {primary};
+}}
+QComboBox:focus {{
+    border-color: {primary};
+    background-color: {bg_card_hover};
+}}
+QComboBox::drop-down {{
+    border: none;
+    width: 26px;
+}}
+QComboBox::down-arrow {{
+    image: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid {text_muted};
+    margin-right: 4px;
+}}
+QComboBox QAbstractItemView {{
+    background-color: {bg_surface};
+    color: {text_primary};
+    border: 1.5px solid {border};
+    border-radius: 10px;
+    selection-background-color: {primary_light};
+    selection-color: {text_primary};
+    outline: none;
+}}
+QSpinBox {{
+    background-color: {input_bg};
+    color: {text_primary};
+    border: 1.5px solid {input_border};
+    border-radius: 10px;
+    padding: 6px 10px;
+    min-height: 30px;
+    font-size: 13px;
+}}
+QSpinBox:hover, QSpinBox:focus {{
+    border-color: {primary};
+}}
+
+/* ============ لوحة الانتقال السريع ============ */
+QDialog#paletteDialog {{
+    background-color: {bg_surface};
+}}
+QLineEdit#paletteSearch {{
+    min-height: 40px;
+    font-size: 14px;
+    border-radius: 12px;
+}}
+QListWidget#paletteList {{
+    background-color: {bg_surface};
+    border: 1.5px solid {border};
+    border-radius: 12px;
+    font-size: 13.5px;
+    outline: none;
+}}
+QListWidget#paletteList::item {{
+    min-height: 38px;
+    border-radius: 8px;
+    padding: 0 12px;
+    margin: 2px 4px;
+}}
+QListWidget#paletteList::item:selected {{
+    background-color: {primary_light};
+    color: {text_primary};
+}}
+QListWidget#paletteList::item:hover {{
+    background-color: {bg_hover_soft};
+}}
+
+/* ============ شبكة محرر الصفحات ============ */
+QListWidget#pagesGrid {{
+    background-color: {bg_surface};
+    border: 1.5px solid {border};
+    border-radius: 12px;
+    outline: none;
+}}
+QListWidget#pagesGrid::item {{
+    margin: 4px;
+    border-radius: 8px;
+}}
+QListWidget#pagesGrid::item:selected {{
+    background-color: {primary_light};
+}}
+
 /* ============ بطاقات المعلومات والمطور ============ */
 QFrame#aboutCard {{
     background-color: {bg_hover_soft};

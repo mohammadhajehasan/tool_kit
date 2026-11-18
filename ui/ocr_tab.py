@@ -1,74 +1,73 @@
+"""تبويب OCR — التعرف الضوئي على الحروف (اختياري حسب تثبيت Tesseract)."""
+
 import os
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFileDialog,
-    QProgressBar, QComboBox,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
+    QProgressBar, QFrame,
 )
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import Qt, QUrl
 
-from ui.widgets import DropZone, Worker, CancellationToken
+from ui.widgets import DropZone, Worker
 from ui.toast import show_toast
-from core.ocr import ocr_pdf, tesseract_available
+from ui.i18n import tr
+from core.ocr import ocr_pdf, available, OcrError, INSTALL_HINT
+from core.history import record
+
+PDF_FILTER = "PDF (*.pdf)"
 
 
 class OcrTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.selected_file = None
         self.worker = None
         self._build_ui()
-        self._refresh_engine()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
-        title = QLabel("التعرف الضوئي على الحروف (OCR)")
+        title = QLabel(tr("ocr_title"))
         title.setObjectName("pageTitle")
-        desc = QLabel("حوّل المستندات الممسوحة إلى PDF قابل للبحث والنسخ — دعم العربية والإنجليزية")
+        desc = QLabel(tr("ocr_desc"))
         desc.setObjectName("pageDesc")
         layout.addWidget(title)
         layout.addWidget(desc)
 
-        self.engine_label = QLabel("")
-        self.engine_label.setObjectName("hintLabel")
-        self.engine_label.setWordWrap(True)
-        layout.addWidget(self.engine_label)
-
         self.drop_zone = DropZone(
-            hint_text="اسحب ملف PDF ممسوحاً هنا أو انقر للاختيار",
-            sub_text="ملف واحد",
-            file_filter="PDF Files (*.pdf)",
-            multiple=False,
+            hint_text="اسحب ملف PDF ممسوح ضوئياً هنا",
+            sub_text="الناتج: PDF يحتوي طبقة نص مخفية قابلة للبحث والنسخ",
+            file_filter=PDF_FILTER, multiple=False,
         )
         self.drop_zone.filesDropped.connect(self._on_file)
         layout.addWidget(self.drop_zone)
 
-        self.file_label = QLabel("")
-        self.file_label.setObjectName("fileMeta")
-        layout.addWidget(self.file_label)
-
         opts = QHBoxLayout()
-        opts.addWidget(QLabel("اللغة:"))
-        self.lang = QComboBox()
-        self.lang.addItem("عربي + إنجليزي", "ara+eng")
-        self.lang.addItem("عربي فقط", "ara")
-        self.lang.addItem("إنجليزي فقط", "eng")
-        opts.addWidget(self.lang)
+        opts.addWidget(QLabel("اللغة"))
+        self.lang_combo = QComboBox()
+        self.lang_combo.addItem("عربي + إنجليزي", "ara+eng")
+        self.lang_combo.addItem("عربي فقط", "ara")
+        self.lang_combo.addItem("إنجليزي فقط", "eng")
+        opts.addWidget(self.lang_combo)
+
+        opts.addWidget(QLabel("الدقة"))
+        self.dpi_combo = QComboBox()
+        self.dpi_combo.addItem("سريعة (150)", 150)
+        self.dpi_combo.addItem("متوازنة (200)", 200)
+        self.dpi_combo.addItem("دقيقة (300)", 300)
+        self.dpi_combo.setCurrentIndex(1)
+        opts.addWidget(self.dpi_combo)
         opts.addStretch()
         layout.addLayout(opts)
 
-        run_row = QHBoxLayout()
-        self.cancel_btn = QPushButton("إلغاء")
-        self.cancel_btn.setObjectName("dangerBtn")
-        self.cancel_btn.setEnabled(False)
-        self.cancel_btn.clicked.connect(self._cancel)
-        self.run_btn = QPushButton("بدء OCR")
+        run_layout = QHBoxLayout()
+        self.run_btn = QPushButton(tr("run"))
         self.run_btn.setObjectName("primaryBtn")
         self.run_btn.setEnabled(False)
         self.run_btn.clicked.connect(self._run)
-        run_row.addStretch()
-        run_row.addWidget(self.cancel_btn)
-        run_row.addWidget(self.run_btn)
-        layout.addLayout(run_row)
+        run_layout.addStretch()
+        run_layout.addWidget(self.run_btn)
+        layout.addLayout(run_layout)
 
         self.progress = QProgressBar()
         self.progress.setRange(0, 0)
@@ -78,70 +77,66 @@ class OcrTab(QWidget):
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
         layout.addWidget(self.status_label)
-        layout.addStretch()
 
-    def _refresh_engine(self):
-        ok, info = tesseract_available()
-        if ok:
-            self.engine_label.setText(f"محرك Tesseract جاهز: {info}")
-        else:
-            self.engine_label.setText(info)
+        self.avail = available()
+        if not self.avail:
+            hint = QFrame()
+            hint.setObjectName("aboutCard")
+            hv = QVBoxLayout(hint)
+            hv.setContentsMargins(18, 14, 18, 14)
+            t = QLabel("⚙️  OCR غير مفعّل على هذا النظام")
+            t.setObjectName("cardTitle")
+            b = QLabel(INSTALL_HINT)
+            b.setObjectName("cardBody")
+            b.setWordWrap(True)
+            b.setTextInteractionFlags(Qt.TextBrowserInteraction)
+            link = QLabel("⬇️ تحميل Tesseract OCR")
+            link.setObjectName("secondaryBtn")
+            link.setCursor(Qt.PointingHandCursor)
+            link.clicked.connect(lambda: QDesktopServices.openUrl(
+                QUrl("https://github.com/UB-Mannheim/tesseract/wiki")))
+            hv.addWidget(t)
+            hv.addWidget(b)
+            hv.addWidget(link)
+            layout.addWidget(hint)
+            layout.addStretch()
+
+        layout.addStretch()
+        self.src_path = None
 
     def _on_file(self, paths):
-        if not paths or not paths[0].lower().endswith(".pdf"):
-            show_toast(self, "اختر ملف PDF", "warning")
+        if not paths:
             return
-        self.selected_file = paths[0]
-        self.file_label.setText(f"📄 {os.path.basename(paths[0])}")
-        self.run_btn.setEnabled(True)
-
-    def _cancel(self):
-        if self.worker:
-            self.worker.cancel()
+        self.src_path = paths[0]
+        self.status_label.setText(f"📄 {os.path.basename(self.src_path)}")
+        self.run_btn.setEnabled(self.avail)
+        if not self.avail:
+            show_toast(self, "OCR غير مفعّل — راجع خطوات التثبيت أدناه", "warning")
 
     def _run(self):
-        if not self.selected_file:
+        if not self.src_path or self.worker or not self.avail:
             return
-        ok, info = tesseract_available()
-        if not ok:
-            show_toast(self, "Tesseract غير متاح", "error")
-            self.status_label.setText(info)
-            return
-        base = os.path.splitext(os.path.basename(self.selected_file))[0]
-        output, _ = QFileDialog.getSaveFileName(
-            self, "حفظ PDF القابل للبحث", f"{base}_OCR.pdf", "PDF Files (*.pdf)"
-        )
-        if not output:
-            return
-
-        token = CancellationToken()
         self.run_btn.setEnabled(False)
-        self.cancel_btn.setEnabled(True)
         self.progress.setVisible(True)
-        self.status_label.setText("جاري التعرف الضوئي… قد يستغرق وقتاً حسب عدد الصفحات")
-
-        self.worker = Worker(
-            ocr_pdf,
-            self.selected_file,
-            output,
-            lang=self.lang.currentData(),
-            cancel_token=token,
-        )
-        self.worker.finished_ok.connect(lambda res: self._done(True, res))
-        self.worker.failed.connect(lambda e: self._done(False, e))
+        self.status_label.setText("⏳ جارٍ التعرف على النص (قد يستغرق دقائق للملفات الكبيرة)…")
+        self.worker = Worker(ocr_pdf, self.src_path,
+                             os.path.splitext(self.src_path)[0] + "_OCR.pdf",
+                             self.lang_combo.currentData(),
+                             self.dpi_combo.currentData())
+        self.worker.finished_ok.connect(self._on_done)
+        self.worker.failed.connect(self._on_fail)
         self.worker.start()
 
-    def _done(self, ok, payload):
+    def _on_done(self, result):
+        self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        self.cancel_btn.setEnabled(False)
-        if ok:
-            msg = f"✅ تم إنشاء PDF قابل للبحث ({payload.get('pages')} صفحة)\n{payload.get('output')}"
-            show_toast(self, "اكتمل OCR بنجاح", "success")
-        else:
-            msg = f"❌ {payload}"
-            show_toast(self, str(payload), "error")
-        self.status_label.setObjectName("statusSuccess" if ok else "statusError")
-        self.status_label.setText(msg)
-        self.style().unpolish(self.status_label)
-        self.style().polish(self.status_label)
+        show_toast(self, f"✅ أصبح الملف قابلاً للبحث ({result['pages']} صفحة)", "info")
+        self.status_label.setText(f"✅ محفوظ: {result['out']}")
+        record("OCR", result["out"])
+
+    def _on_fail(self, err):
+        self.worker = None
+        self.progress.setVisible(False)
+        self.run_btn.setEnabled(True)
+        self.status_label.setText(f"❌ {err}")

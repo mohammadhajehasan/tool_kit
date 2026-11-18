@@ -1,39 +1,42 @@
+import os
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget,
-    QListWidgetItem, QStackedWidget, QLabel, QPushButton, QApplication,
-    QScrollArea, QGraphicsOpacityEffect,
+    QListWidgetItem, QStackedWidget, QLabel, QFrame, QPushButton, QApplication,
+    QMessageBox,
 )
-from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve
-import os
+from PySide6.QtCore import Qt, QSize, QTimer
+from PySide6.QtGui import QKeySequence, QShortcut
 
+from ui import i18n
+from ui.i18n import tr
 from ui.compress_tab import CompressTab
 from ui.split_tab import SplitTab
 from ui.merge_tab import MergeTab
 from ui.convert_tab import ConvertTab
-from ui.pdf_to_images_tab import PdfToImagesTab
 from ui.archive_tab import ArchiveTab
+from ui.pdf2img_tab import Pdf2ImgTab
+from ui.extract_tab import ExtractTab
+from ui.pages_tab import PagesTab
+from ui.stamp_tab import StampTab
 from ui.protect_tab import ProtectTab
-from ui.watermark_tab import WatermarkTab
-from ui.organize_tab import OrganizeTab
 from ui.ocr_tab import OcrTab
-from ui.export_tab import ExportTab
-from ui.diff_tab import DiffTab
-from ui.ai_tab import AiTab
+from ui.repair_tab import RepairTab
 from ui.info_tab import InfoTab
 from ui.developer_tab import DeveloperTab
 from ui.styles import get_style
-from ui.icons import svg_icon
+from version import APP_VERSION
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PDF Toolbox — أداة PDF")
-        self.resize(1100, 740)
-        self.setMinimumSize(900, 620)
-        self.setLayoutDirection(Qt.RightToLeft)
+        self.setWindowTitle(tr("app_title"))
+        self.resize(1040, 760)
+        self.setMinimumSize(880, 620)
+        self.setLayoutDirection(Qt.RightToLeft if i18n.rtl() else Qt.LeftToRight)
         self._load_icon()
 
+        # الثيم من الإعدادات المحفوظة (auto/dark/light)
         self.theme_setting = "auto"
         try:
             import json
@@ -47,11 +50,12 @@ class MainWindow(QMainWindow):
             pass
         self._resolved = None
         self._apply_style()
-        self._fade_anim = None
 
         self._build_ui()
+        self._install_shortcuts()
 
     def _load_icon(self):
+        """يحمّل أيقونة التطبيق إن وُجدت"""
         from pathlib import Path
         for name in ("app.ico", "app.png", "icon.png", "app.icns"):
             p = Path(__file__).parent.parent / "resources" / name
@@ -60,7 +64,9 @@ class MainWindow(QMainWindow):
                 self.setWindowIcon(QIcon(str(p)))
                 break
 
+    # ---------- الثيمات ----------
     def _detect_system_theme(self) -> str:
+        """يحل الثيم التلقائي من ثيم نظام التشغيل"""
         try:
             hints = QApplication.styleHints()
             scheme = getattr(hints, "colorScheme", lambda: None)()
@@ -71,6 +77,7 @@ class MainWindow(QMainWindow):
         return "light"
 
     def _apply_style(self):
+        """يطبق نظام التصميم الموحد (styles.py) على مستوى التطبيق بالكامل"""
         resolved = {
             "auto": self._detect_system_theme(),
             "dark": "dark",
@@ -85,15 +92,16 @@ class MainWindow(QMainWindow):
             self.setStyleSheet(stylesheet)
 
     def _cycle_theme(self):
+        """auto → dark → light → auto (مع الحفظ)"""
         order = ["auto", "dark", "light"]
         self.theme_setting = order[(order.index(self.theme_setting) + 1) % 3]
         self._apply_style()
         self._update_theme_btn()
         self._persist_theme()
         self._refresh_theme_widgets()
-        self._refresh_sidebar_icons()
 
     def _persist_theme(self):
+        """يحفظ اختيار الثيم حتى يعود التطبيق بنفس الوضع لاحقاً"""
         try:
             import json
             path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "settings.json")
@@ -105,24 +113,19 @@ class MainWindow(QMainWindow):
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception:
-            pass
+            pass  # الحفظ الاختياري — لا نمنع التطبيق من العمل
 
     def _theme_label(self) -> str:
-        return {
-            "auto": f"تلقائي ({'داكن' if self._resolved == 'dark' else 'فاتح'})",
-            "dark": "داكن",
-            "light": "فاتح",
-        }.get(self.theme_setting, "الثيم")
+        if self.theme_setting == "auto":
+            return tr("theme_auto").format(mode="داكن" if self._resolved == "dark" else "فاتح")
+        return tr("theme_dark") if self.theme_setting == "dark" else tr("theme_light")
 
     def _update_theme_btn(self):
         self.theme_btn.setText(self._theme_label())
-        self.theme_btn.setToolTip(
-            {"auto": "يتبع ثيم نظام التشغيل — انقر للتغيير",
-             "dark": "الوضع الداكن — انقر للتبديل",
-             "light": "الوضع الفاتح — انقر للتبديل"}[self.theme_setting]
-        )
+        self.theme_btn.setToolTip("تبديل الثيم" if i18n.rtl() else "Switch theme")
 
     def _refresh_theme_widgets(self):
+        """يعيد تلوين البطاقات والرسوم التي تخزن حالتها محلياً"""
         chart = getattr(self, "compress_tab", None)
         if chart:
             try:
@@ -130,18 +133,21 @@ class MainWindow(QMainWindow):
             except AttributeError:
                 pass
 
-    def _icon_color(self) -> str:
-        return "#C7D2FE" if self._resolved == "dark" else "#A3AEC8"
+    # ---------- اللغة ----------
+    def _toggle_language(self):
+        new_lang = "en" if i18n.lang() == "ar" else "ar"
+        i18n.set_lang(new_lang)
+        box = QMessageBox(self)
+        box.setWindowTitle("اللغة / Language")
+        box.setText(tr("lang_switch_msg"))
+        restart = box.addButton(tr("restart_now"), QMessageBox.AcceptRole)
+        box.addButton(tr("later"), QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is restart:
+            from main import restart_app
+            restart_app()
 
-    def _refresh_sidebar_icons(self):
-        color = self._icon_color()
-        for i in range(self.sidebar.count()):
-            item = self.sidebar.item(i)
-            key = item.data(Qt.UserRole)
-            icon_name = self._nav_icon_map.get(key)
-            if icon_name:
-                item.setIcon(svg_icon(icon_name, color=color, size=18))
-
+    # ---------- بناء الواجهة ----------
     def _build_ui(self):
         central = QWidget()
         central.setObjectName("centralWidget")
@@ -151,6 +157,7 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
+        # ===== الشريط الجانبي =====
         sidebar_container = QWidget()
         sidebar_container.setObjectName("sidebarContainer")
         sidebar_container.setFixedWidth(248)
@@ -158,22 +165,22 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
 
+        # --- الترويسة: شعار + اسم ---
         header = QWidget()
         header.setObjectName("sidebarHeader")
         header_row = QHBoxLayout(header)
         header_row.setContentsMargins(18, 16, 10, 12)
         header_row.setSpacing(12)
 
-        logo = QLabel()
+        logo = QLabel("📄")
         logo.setObjectName("appLogo")
         logo.setAlignment(Qt.AlignCenter)
-        logo.setPixmap(svg_icon("app", color="#A5B4FC", size=28).pixmap(28, 28))
 
         titles = QVBoxLayout()
         titles.setSpacing(0)
-        app_title = QLabel("أداة PDF")
+        app_title = QLabel(tr("app_name"))
         app_title.setObjectName("appTitle")
-        app_subtitle = QLabel("كل الأدوات في مكان واحد")
+        app_subtitle = QLabel(tr("app_subtitle"))
         app_subtitle.setObjectName("appSubtitle")
         titles.addWidget(app_title)
         titles.addWidget(app_subtitle)
@@ -181,71 +188,75 @@ class MainWindow(QMainWindow):
         header_row.addWidget(logo)
         header_row.addLayout(titles, 1)
 
+        # --- أزرار التذييل ---
         self.theme_btn = QPushButton(self._theme_label())
         self.theme_btn.setObjectName("sidebarBtn")
         self.theme_btn.setCursor(Qt.PointingHandCursor)
         self.theme_btn.clicked.connect(self._cycle_theme)
-        self.theme_btn.setToolTip("تبديل الثيم")
 
+        self.lang_btn = QPushButton(tr("lang_btn"))
+        self.lang_btn.setObjectName("sidebarBtn")
+        self.lang_btn.setCursor(Qt.PointingHandCursor)
+        self.lang_btn.clicked.connect(self._toggle_language)
+
+        # --- عناصر القائمة (بأقسام) ---
         self.sidebar = QListWidget()
         self.sidebar.setObjectName("sidebar")
         self.sidebar.setFocusPolicy(Qt.NoFocus)
-        self.sidebar.setIconSize(QSize(18, 18))
+        self.sidebar.setVerticalScrollMode(QListWidget.ScrollPerPixel)
 
-        self._nav_icon_map = {
-            "compress": "compress",
-            "split": "split",
-            "merge": "merge",
-            "convert": "images",
-            "pdf_images": "pdf_images",
-            "protect": "protect",
-            "watermark": "watermark",
-            "organize": "organize",
-            "ocr": "ocr",
-            "export": "export",
-            "diff": "diff",
-            "ai": "ai",
-            "archive": "archive",
-            "info": "info",
-            "developer": "developer",
+        sections = {
+            "sec_core": ["compress", "split", "merge", "convert"],
+            "sec_convert": ["pdf2img", "extract", "ocr"],
+            "sec_edit": ["pages", "stamp", "protect", "repair"],
+            "sec_extra": ["archive"],
+            "sec_system": ["info", "developer"],
         }
-        items = [
-            ("ضغط PDF", "compress"),
-            ("تقطيع PDF", "split"),
-            ("دمج PDF", "merge"),
-            ("صور إلى PDF", "convert"),
-            ("PDF إلى صور", "pdf_images"),
-            ("حماية وتشفير", "protect"),
-            ("علامة مائية", "watermark"),
-            ("تنظيم الصفحات", "organize"),
-            ("OCR عربي", "ocr"),
-            ("تصدير Word/Excel", "export"),
-            ("مقارنة PDF", "diff"),
-            ("مساعد ذكي", "ai"),
-            ("فك ضغط", "archive"),
-            ("معلومات", "info"),
-            ("المطور", "developer"),
-        ]
-        color = self._icon_color()
-        for text, key in items:
-            item = QListWidgetItem(text)
-            item.setData(Qt.UserRole, key)
-            item.setSizeHint(QSize(0, 44))
-            icon_name = self._nav_icon_map.get(key)
-            if icon_name:
-                item.setIcon(svg_icon(icon_name, color=color, size=18))
-            self.sidebar.addItem(item)
+        labels = {
+            "compress": tr("t_compress"), "split": tr("t_split"),
+            "merge": tr("t_merge"), "convert": tr("t_convert"),
+            "pdf2img": tr("t_pdf2img"), "extract": tr("t_extract"),
+            "ocr": tr("t_ocr"), "pages": tr("t_pages"),
+            "stamp": tr("t_stamp"), "protect": tr("t_protect"),
+            "repair": tr("t_repair"), "archive": tr("t_archive"),
+            "info": tr("t_info"), "developer": tr("t_developer"),
+        }
+        self._tool_rows: dict[str, int] = {}
+        for sec_key, tool_keys in sections.items():
+            sec_item = QListWidgetItem()
+            sec_item.setFlags(Qt.NoItemFlags)
+            sec_item.setSizeHint(QSize(0, 38))
+            self.sidebar.addItem(sec_item)
+            sec_label = QLabel(tr(sec_key))
+            sec_label.setObjectName("sidebarSection")
+            sec_label.setAlignment(Qt.AlignCenter)
+            sec_label.setMinimumHeight(38)  # ضروري: يمنع انهيار ارتفاع الـwidget داخل الصف
+            self.sidebar.setItemWidget(sec_item, sec_label)
+
+            for key in tool_keys:
+                item = QListWidgetItem(labels[key])
+                item.setData(Qt.UserRole, key)
+                item.setSizeHint(QSize(0, 44))
+                self.sidebar.addItem(item)
+                self._tool_rows[key] = self.sidebar.row(item)
 
         self.sidebar.currentRowChanged.connect(self._on_sidebar_changed)
 
+        # --- التذييل (الثيم + اللغة + النسخة) ---
         footer_widget = QWidget()
         footer_widget.setObjectName("sidebarFooter")
         footer_layout = QVBoxLayout(footer_widget)
         footer_layout.setContentsMargins(12, 12, 12, 14)
         footer_layout.setSpacing(8)
-        footer_layout.addWidget(self.theme_btn)
 
-        footer = QLabel("v1.4.0  •  MIT License")
+        footer_buttons = QHBoxLayout()
+        footer_buttons.setSpacing(8)
+        footer_buttons.addWidget(self.theme_btn, 1)
+        footer_buttons.addWidget(self.lang_btn)
+
+        footer_layout.addLayout(footer_buttons)
+
+        footer = QLabel(f"v{APP_VERSION}  •  MIT License")
         footer.setObjectName("versionLabel")
         footer.setAlignment(Qt.AlignCenter)
         footer_layout.addWidget(footer)
@@ -254,35 +265,39 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.sidebar, 1)
         sidebar_layout.addWidget(footer_widget)
 
+        # ===== منطقة المحتوى =====
         self.stack = QStackedWidget()
         self.stack.setContentsMargins(0, 0, 0, 0)
-        self._stack_effect = QGraphicsOpacityEffect(self.stack)
-        self.stack.setGraphicsEffect(self._stack_effect)
-        self._stack_effect.setOpacity(1.0)
 
         self.compress_tab = CompressTab()
         self.split_tab = SplitTab()
         self.merge_tab = MergeTab()
         self.convert_tab = ConvertTab()
-        self.pdf_images_tab = PdfToImagesTab()
-        self.protect_tab = ProtectTab()
-        self.watermark_tab = WatermarkTab()
-        self.organize_tab = OrganizeTab()
-        self.ocr_tab = OcrTab()
-        self.export_tab = ExportTab()
-        self.diff_tab = DiffTab()
-        self.ai_tab = AiTab()
         self.archive_tab = ArchiveTab()
+        self.pdf2img_tab = Pdf2ImgTab()
+        self.extract_tab = ExtractTab()
+        self.pages_tab = PagesTab()
+        self.stamp_tab = StampTab()
+        self.protect_tab = ProtectTab()
+        self.ocr_tab = OcrTab()
+        self.repair_tab = RepairTab()
         self.info_tab = InfoTab()
         self.developer_tab = DeveloperTab()
 
-        for tab in (
-            self.compress_tab, self.split_tab, self.merge_tab,
-            self.convert_tab, self.pdf_images_tab,
-            self.protect_tab, self.watermark_tab, self.organize_tab,
-            self.ocr_tab, self.export_tab, self.diff_tab, self.ai_tab,
+        tabs = [
+            self.compress_tab, self.split_tab, self.merge_tab, self.convert_tab,
+            self.pdf2img_tab, self.extract_tab, self.ocr_tab,
+            self.pages_tab, self.stamp_tab, self.protect_tab, self.repair_tab,
             self.archive_tab, self.info_tab, self.developer_tab,
-        ):
+        ]
+        # ترتيب التبويبات في الـstack — مفتاح الأداة → فهرس الصفحة
+        tab_keys = ["compress", "split", "merge", "convert", "pdf2img", "extract",
+                    "ocr", "pages", "stamp", "protect", "repair", "archive",
+                    "info", "developer"]
+        self._tab_index = {k: i for i, k in enumerate(tab_keys)}
+        for tab in tabs:
+            # تمرير داخلي عند ضيقة النافذة بدلاً من ضغط أو تداخل العناصر
+            from PySide6.QtWidgets import QScrollArea
             scroll = QScrollArea()
             scroll.setObjectName("pageScroll")
             scroll.setWidgetResizable(True)
@@ -304,21 +319,71 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(sidebar_container)
         root_layout.addWidget(content_area, 1)
 
-        self.sidebar.setCurrentRow(0)
+        self.sidebar.setCurrentRow(self._tool_rows["compress"])
         self._update_theme_btn()
 
-    def _on_sidebar_changed(self, index):
-        if index < 0:
-            return
-        self.stack.setCurrentIndex(index)
-        # تلاشي ناعم عند التنقل
-        if self._fade_anim and self._fade_anim.state() == QPropertyAnimation.Running:
-            self._fade_anim.stop()
-        self._stack_effect.setOpacity(0.35)
-        anim = QPropertyAnimation(self._stack_effect, b"opacity", self)
-        anim.setDuration(180)
-        anim.setStartValue(0.35)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.OutCubic)
-        anim.start()
-        self._fade_anim = anim
+    # ---------- اختصارات ولوحة الأوامر ----------
+    def _install_shortcuts(self):
+        """اختصارات لوحة المفاتيح: Ctrl+1..9,0 للأدوات الأولى وCtrl+K للبحث."""
+        keys_order = ["compress", "split", "merge", "convert", "pdf2img",
+                      "extract", "ocr", "pages", "stamp", "protect"]
+        for n, key in enumerate(keys_order, start=1):
+            seq = str(n) if n <= 9 else "0"
+            sc = QShortcut(QKeySequence(f"Ctrl+{seq}"), self)
+            sc.activated.connect(lambda k=key: self.jump_to(k))
+
+        palette_sc = QShortcut(QKeySequence("Ctrl+K"), self)
+        palette_sc.activated.connect(self._open_palette)
+
+        self._update_shortcut = QShortcut(QKeySequence("F5"), self)
+        self._update_shortcut.activated.connect(self._manual_update_check)
+
+    def _open_palette(self):
+        from ui.palette import CommandPalette
+        labels = {
+            "compress": tr("t_compress"), "split": tr("t_split"),
+            "merge": tr("t_merge"), "convert": tr("t_convert"),
+            "pdf2img": tr("t_pdf2img"), "extract": tr("t_extract"),
+            "ocr": tr("t_ocr"), "pages": tr("t_pages"),
+            "stamp": tr("t_stamp"), "protect": tr("t_protect"),
+            "repair": tr("t_repair"), "archive": tr("t_archive"),
+            "info": tr("t_info"), "developer": tr("t_developer"),
+        }
+        actions = [(labels[k], k) for k in self._tool_rows]
+        actions.append(("🎨 " + tr("theme_dark"), "__theme__"))
+        actions.append(("🌐 " + tr("lang_btn"), "__lang__"))
+        palette = CommandPalette(actions, self)
+        palette.jump_callback = self._palette_jump
+        palette.exec()
+
+    def _palette_jump(self, key: str):
+        if key == "__theme__":
+            self._cycle_theme()
+        elif key == "__lang__":
+            self._toggle_language()
+        else:
+            self.jump_to(key)
+
+    def jump_to(self, key: str):
+        """ينتقل إلى أداة عبر مفتاحها (يُستخدم من الاختصارات واللوحة)."""
+        row = self._tool_rows.get(key)
+        if row is not None:
+            self.sidebar.setCurrentRow(row)
+
+    # ---------- فاحص التحديث ----------
+    def _manual_update_check(self):
+        from ui.update_checker import check_for_update
+        check_for_update(self, notify_uptodate=True)
+
+    def _auto_update_check(self):
+        """فحص هادئ عند الإقلاع — نافذة فقط إذا وُجد إصدار أحدث."""
+        from ui.update_checker import check_for_update
+        check_for_update(self, notify_uptodate=False)
+
+    # ---------- التنقل ----------
+    def _on_sidebar_changed(self, row):
+        """ينتقل إلى التبويب المرتبط بالصف — صفوف الأقسام (بلا مفتاح) تُتجاهل."""
+        item = self.sidebar.item(row)
+        key = item.data(Qt.UserRole) if item else None
+        if key and key in self._tab_index:
+            self.stack.setCurrentIndex(self._tab_index[key])

@@ -10,7 +10,8 @@ from PySide6.QtGui import QPixmap, QImage
 from ui.widgets import DropZone, Worker
 from core.split import (
     get_page_count, parse_page_ranges, extract_pages,
-    split_to_individual_files, render_page_thumbnails, SplitError
+    split_to_individual_files, render_page_thumbnails, SplitError,
+    get_bookmarks, split_by_bookmarks
 )
 
 
@@ -247,10 +248,15 @@ class SplitTab(QWidget):
         self.single_radio = QRadioButton("دمج الصفحات المحددة في ملف واحد")
         self.single_radio.setChecked(True)
         self.individual_radio = QRadioButton("كل صفحة كملف مستقل")
+        self.bookmarks_radio = QRadioButton("📚 حسب الفهرس (الفصول)")
+        self.bookmarks_radio.setEnabled(False)
+        self.bookmarks_radio.setToolTip("يتطلب ملفاً يحتوي إشارات إرشاد (فهرس/فصول)")
         self.mode_group.addButton(self.single_radio)
         self.mode_group.addButton(self.individual_radio)
+        self.mode_group.addButton(self.bookmarks_radio)
         mode_layout.addWidget(self.single_radio)
         mode_layout.addWidget(self.individual_radio)
+        mode_layout.addWidget(self.bookmarks_radio)
         mode_layout.addStretch()
         layout.addLayout(mode_layout)
 
@@ -292,6 +298,22 @@ class SplitTab(QWidget):
         self.range_input.setEnabled(True)
         self.run_btn.setEnabled(True)
         self.status_label.setText("")
+
+        # فحص وجود فهرس (فصول) لتفعيل وضع التقطيع حسب الفهرس
+        self.marks_count = 0
+        try:
+            self.marks_count = len(get_bookmarks(path, level=1))
+        except Exception:
+            self.marks_count = 0
+        if self.marks_count:
+            self.bookmarks_radio.setEnabled(True)
+            self.bookmarks_radio.setToolTip(f"الملف يحتوي {self.marks_count} فصلاً في المستوى الأول")
+            if not self.hint_label.text().endswith("—"):
+                self.hint_label.setText(self.hint_label.text() + f"  •  📚 {self.marks_count} فصلاً")
+        else:
+            self.bookmarks_radio.setEnabled(False)
+            if self.bookmarks_radio.isChecked():
+                self.single_radio.setChecked(True)
 
         # إنشاء المعاينات في خيط منفصل حتى لا تتجمد الواجهة
         self.page_grid.setVisible(True)
@@ -368,6 +390,17 @@ class SplitTab(QWidget):
 
     def _run_split(self):
         if not self.selected_file:
+            return
+
+        # وضع الفصول: تقسيم حسب إشارات الإرشاد دون حاجة لتحديد صفحات
+        if self.bookmarks_radio.isChecked() and self.bookmarks_radio.isEnabled():
+            output_dir = QFileDialog.getExistingDirectory(self, "اختر مجلد الحفظ")
+            if not output_dir:
+                return
+            base_name = os.path.splitext(os.path.basename(self.selected_file))[0]
+            self._start_worker(
+                split_by_bookmarks, self.selected_file, output_dir,
+                success_msg=lambda r: f"✅ تم التقسيم إلى {len(r)} ملف حسب الفصول\nحُفظت في: {output_dir}")
             return
 
         try:

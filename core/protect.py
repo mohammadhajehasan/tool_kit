@@ -1,18 +1,29 @@
-"""
-وحدة حماية وتشفير ملفات PDF وإلغاء الحماية.
-تستخدم pikepdf (AES-256) لتعيين كلمة مرور وفتح الملفات المحمية.
-"""
+"""حماية ملفات PDF بكلمة مرور (AES-256) وإزالة الحماية — عبر pikepdf."""
 
 import os
 
 
 class ProtectError(Exception):
-    """يُرفع عند فشل الحماية أو إلغائها"""
     pass
 
 
-def protect_pdf(
-    input_path: str,
+def is_encrypted(src_path: str) -> bool:
+    """يخبر إن كان الملف مشفّراً."""
+    import pikepdf
+
+    if not os.path.isfile(src_path):
+        return False
+    try:
+        with pikepdf.open(src_path) as pdf:
+            return bool(pdf.is_encrypted)
+    except pikepdf.PasswordError:
+        return True
+    except Exception:
+        return False
+
+
+def protect(
+    src_path: str,
     output_path: str,
     user_password: str,
     owner_password: str | None = None,
@@ -20,86 +31,62 @@ def protect_pdf(
     allow_copy: bool = False,
     allow_modify: bool = False,
 ) -> str:
-    """
-    يشفر ملف PDF بكلمة مرور (AES-256 إن أمكن).
+    """يشفّر الملف بكلمة مرور مع أذونات قابلة للتحكم."""
+    import pikepdf
 
-    user_password: مطلوبة لفتح الملف
-    owner_password: لإدارة الصلاحيات (إن تُركت فارغة تُساوى user_password)
-    """
-    try:
-        import pikepdf
-        from pikepdf import Permissions, Encryption
-    except ImportError as e:
-        raise ProtectError("pikepdf غير مثبّت. ثبّته: pip install pikepdf") from e
-
-    if not os.path.isfile(input_path):
-        raise FileNotFoundError(f"الملف غير موجود: {input_path}")
     if not user_password:
-        raise ProtectError("يجب إدخال كلمة مرور لفتح الملف")
-
-    owner = owner_password or user_password
-    perms = Permissions(
-        accessibility=True,
-        extract=allow_copy,
-        modify_annotation=allow_modify,
-        modify_assembly=allow_modify,
-        modify_form=allow_modify,
-        modify_other=allow_modify,
-        print_highres=allow_print,
-        print_lowres=allow_print,
-    )
+        raise ProtectError("أدخل كلمة المرور أولاً")
+    if not os.path.isfile(src_path):
+        raise FileNotFoundError(f"الملف غير موجود: {src_path}")
 
     try:
-        with pikepdf.open(input_path) as pdf:
-            pdf.save(
-                output_path,
-                encryption=Encryption(
-                    user=user_password,
-                    owner=owner,
-                    allow=perms,
-                    aes=True,
-                    R=6,
-                ),
-            )
+        pdf = pikepdf.open(src_path)
+    except pikepdf.PasswordError:
+        raise ProtectError("الملف محمي مسبقاً — استخدم «إزالة الحماية» أولاً")
     except Exception as e:
-        raise ProtectError(f"فشل تشفير الملف: {e}") from e
+        raise ProtectError(f"تعذر فتح الملف: {e}")
 
+    try:
+        perms = pikepdf.Permissions(
+            accessibility=True,
+            extract=allow_copy,
+            modify_annotation=allow_modify,
+            modify_assembly=allow_modify,
+            modify_form=allow_modify,
+            modify_other=allow_modify,
+            print_lowres=allow_print,
+            print_highres=allow_print,
+        )
+        pdf.save(
+            output_path,
+            encryption=pikepdf.Encryption(
+                user=user_password,
+                owner=owner_password or user_password,
+                R=6,  # AES-256
+                allow=perms,
+            ),
+        )
+    finally:
+        pdf.close()
     return output_path
 
 
-def unlock_pdf(input_path: str, output_path: str, password: str) -> str:
-    """يلغي حماية ملف PDF بعد إدخال كلمة المرور الصحيحة"""
-    try:
-        import pikepdf
-    except ImportError as e:
-        raise ProtectError("pikepdf غير مثبّت. ثبّته: pip install pikepdf") from e
+def unprotect(src_path: str, output_path: str, password: str) -> str:
+    """يزيل التشفير من ملف يملك المستخدم كلمة مروره."""
+    import pikepdf
 
-    if not os.path.isfile(input_path):
-        raise FileNotFoundError(f"الملف غير موجود: {input_path}")
-    if not password:
-        raise ProtectError("يجب إدخال كلمة المرور")
+    if not os.path.isfile(src_path):
+        raise FileNotFoundError(f"الملف غير موجود: {src_path}")
 
     try:
-        with pikepdf.open(input_path, password=password) as pdf:
-            pdf.save(output_path)
-    except pikepdf.PasswordError as e:
-        raise ProtectError("كلمة المرور غير صحيحة") from e
+        pdf = pikepdf.open(src_path, password=password or "")
+    except pikepdf.PasswordError:
+        raise ProtectError("كلمة المرور غير صحيحة")
     except Exception as e:
-        raise ProtectError(f"فشل إلغاء الحماية: {e}") from e
+        raise ProtectError(f"تعذر فتح الملف: {e}")
 
-    return output_path
-
-
-def is_encrypted(path: str) -> bool:
-    """يتحقق إن كان الملف محمياً بكلمة مرور"""
     try:
-        import pikepdf
-        with pikepdf.open(path) as pdf:
-            return bool(pdf.is_encrypted)
-    except Exception:
-        try:
-            import pikepdf
-            pikepdf.open(path, password="")
-            return False
-        except Exception:
-            return True
+        pdf.save(output_path)  # حفظ بدون تشفير
+    finally:
+        pdf.close()
+    return output_path

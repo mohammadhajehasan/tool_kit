@@ -9,7 +9,8 @@ from PySide6.QtGui import QPainter, QColor, QFont, QPen
 from ui.widgets import DropZone, Worker, CancellationToken
 from ui.styles import chart_colors
 from ui.toast import show_toast
-from core.compress import compress_pdf, format_size, ghostscript_available
+from core.compress import compress_pdf, estimate_size, format_size, ghostscript_available
+from core.history import record
 
 
 class OptionCard(QFrame):
@@ -172,6 +173,12 @@ class CompressTab(QWidget):
         options_layout.setSpacing(12)
         self.button_group = QButtonGroup(self)
 
+        self.light_card = OptionCard(
+            "ضغط خفيف",
+            "أقل تدخّل ممكن — يحافظ على أعلى جودة ويقلّل الحجم قليلاً",
+            "light",
+            self.button_group,
+        )
         self.recommended_card = OptionCard(
             "الضغط الموصى به",
             "يقلّص حجم الملف إلى النصف تقريباً مع الحفاظ على جودة جيدة",
@@ -185,6 +192,7 @@ class CompressTab(QWidget):
             "extreme",
             self.button_group,
         )
+        options_layout.addWidget(self.light_card)
         options_layout.addWidget(self.recommended_card)
         options_layout.addWidget(self.extreme_card)
         layout.addLayout(options_layout)
@@ -209,11 +217,16 @@ class CompressTab(QWidget):
         self.cancel_btn.setObjectName("dangerBtn")
         self.cancel_btn.setEnabled(False)
         self.cancel_btn.clicked.connect(self._cancel)
+        self.estimate_btn = QPushButton("📏 تقدير الحجم")
+        self.estimate_btn.setObjectName("secondaryBtn")
+        self.estimate_btn.setEnabled(False)
+        self.estimate_btn.clicked.connect(self._run_estimate)
         self.run_btn = QPushButton("ضغط الملف")
         self.run_btn.setObjectName("primaryBtn")
         self.run_btn.setEnabled(False)
         self.run_btn.clicked.connect(self._run_compress)
         run_layout.addStretch()
+        run_layout.addWidget(self.estimate_btn)
         run_layout.addWidget(self.cancel_btn)
         run_layout.addWidget(self.run_btn)
         layout.addLayout(run_layout)
@@ -246,6 +259,7 @@ class CompressTab(QWidget):
         size = format_size(os.path.getsize(path))
         self.file_label.setText(f"📄 {os.path.basename(path)}  ({size})")
         self.run_btn.setEnabled(True)
+        self.estimate_btn.setEnabled(True)
         self.status_label.setText("")
         self.chart.setVisible(False)
 
@@ -253,11 +267,44 @@ class CompressTab(QWidget):
         if self.worker:
             self.worker.cancel()
 
+    def _selected_level(self) -> str:
+        for card in (self.light_card, self.recommended_card, self.extreme_card):
+            if card.radio.isChecked():
+                return card.value
+        return "recommended"
+
+    def _run_estimate(self):
+        """تقدير سريع للحجم بعد الضغط دون حفظ الملف."""
+        if not self.selected_file or self.worker:
+            return
+        level = self._selected_level()
+        self.estimate_btn.setEnabled(False)
+        self.progress.setVisible(True)
+        self.status_label.setText("⏳ جارٍ تقدير الحجم (تجربة الضغط على نسخة مؤقتة)…")
+        self.worker = Worker(estimate_size, self.selected_file, level)
+        self.worker.finished_ok.connect(self._on_estimate)
+        self.worker.failed.connect(self._on_failure)
+        self.worker.start()
+
+    def _on_estimate(self, result):
+        self.worker = None
+        self.progress.setVisible(False)
+        self.estimate_btn.setEnabled(True)
+        orig = format_size(result["original_size"])
+        est = format_size(result["compressed_size"])
+        pct = result["reduction_percent"]
+        self.status_label.setText(
+            f"📏 تقدير المستوى المحدد:  {orig} ← {est}  (توفير {pct}%)\n"
+            "انقر «ضغط الملف» للحفظ الفعلي")
+        self.status_label.setObjectName("")
+        self.style().unpolish(self.status_label)
+        self.style().polish(self.status_label)
+
     def _run_compress(self):
         if not self.selected_file:
             return
 
-        level = self.recommended_card.value if self.recommended_card.radio.isChecked() else self.extreme_card.value
+        level = self._selected_level()
         use_gs = self.gs_check.isChecked()
 
         suggested_name = os.path.splitext(os.path.basename(self.selected_file))[0] + "_مضغوط.pdf"
@@ -316,6 +363,10 @@ class CompressTab(QWidget):
         self.style().polish(self.status_label)
         self.chart.update_chart(result["original_size"], result["compressed_size"])
         show_toast(self, f"تم الضغط عبر {method} — توفير {pct}%", "success")
+        try:
+            record("ضغط PDF", output_path, saved_bytes=result["original_size"] - result["compressed_size"])
+        except Exception:
+            pass
 
     def _on_failure(self, error_msg):
         self.progress.setVisible(False)

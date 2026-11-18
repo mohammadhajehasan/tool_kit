@@ -32,10 +32,22 @@ desktop.ini
 
 # Temporary / test files
 _test_*.py
+_test_out.txt
 _ui_preview.py
+_dbg_*.py
+_exp_wm.py
 _arch_test/
 _ui_test/
+logs/
 settings.json
+
+# Legacy one-off helper scripts (not part of the app)
+_scan_out.txt
+_tune_out.txt
+build_styles.py
+fix.py
+main_backup.py
+setup_main.py
 
 # Generated PDFs (test output)
 صور_محولة.pdf

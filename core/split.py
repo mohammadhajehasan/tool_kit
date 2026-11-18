@@ -106,6 +106,85 @@ def split_to_individual_files(input_path: str, output_dir: str, pages: list[int]
     return output_files
 
 
+def get_bookmarks(input_path: str, level: int = 1) -> list[dict]:
+    """
+    يقرأ إشارات الإرشاد (الفهرس/الفصول) من الملف ويعيد نطاقاتها.
+    يعيد قائمة من {title, from, to} (صفحات 1-based).
+    """
+    import fitz
+
+    if not os.path.isfile(input_path):
+        raise FileNotFoundError(f"الملف غير موجود: {input_path}")
+
+    doc = fitz.open(input_path)
+    total = len(doc)
+    toc = doc.get_toc(simple=True)
+    doc.close()
+
+    marks = [(title.strip(), page) for lvl, title, page in toc if lvl == level and page >= 1]
+    if not marks:
+        return []
+
+    result = []
+    for i, (title, start) in enumerate(marks):
+        end = (marks[i + 1][1] - 1) if i + 1 < len(marks) else total
+        if end < start:
+            end = start
+        result.append({"title": title, "from": start, "to": min(end, total)})
+    return result
+
+
+def _safe_filename(name: str) -> str:
+    """يزيل محارف غير صالحة لأسماء الملفات في ويندوز."""
+    import re
+    name = re.sub(r'[\\/:*?"<>|\n\r\t]', " ", name).strip()
+    return name[:60] if name else "فصل"
+
+
+def split_by_bookmarks(input_path: str, output_dir: str, level: int = 1) -> list[str]:
+    """
+    يقسّم الملف إلى ملفات حسب إشارات الإرشاد (الفصول) في مستوى معين.
+    يعيد قائمة بمسارات الملفات الناتجة.
+    """
+    if not os.path.isfile(input_path):
+        raise FileNotFoundError(f"الملف غير موجود: {input_path}")
+
+    marks = get_bookmarks(input_path, level)
+    if not marks:
+        raise SplitError("لا يحتوي الملف على فهرس (إشارات إرشاد) في هذا المستوى")
+
+    os.makedirs(output_dir, exist_ok=True)
+    reader = PdfReader(input_path)
+    total = len(reader.pages)
+    base_name = Path(input_path).stem
+
+    outputs = []
+    used = set()
+    for i, m in enumerate(marks):
+        start, end = m["from"], m["to"]
+        if start > total:
+            continue
+        end = min(end, total)
+        name = _safe_filename(m["title"])
+        if name in used:
+            name = f"{name}_{i + 1}"
+        used.add(name)
+        out_path = os.path.join(output_dir, f"{i + 1:02d} - {name}.pdf")
+        writer = PdfWriter()
+        for p in range(start - 1, end):
+            if 0 <= p < total:
+                writer.add_page(reader.pages[p])
+        if len(writer.pages) == 0:
+            continue
+        with open(out_path, "wb") as f:
+            writer.write(f)
+        outputs.append(out_path)
+
+    if not outputs:
+        raise SplitError("تعذر توليد ملفات من الفهرس")
+    return outputs
+
+
 def render_page_thumbnails(input_path: str, max_width: int = 160) -> list:
     """
     يرسم معاينة مصغّرة (thumbnail) لكل صفحة من ملف PDF ويعيد قائمة بكائنات PIL.Image.

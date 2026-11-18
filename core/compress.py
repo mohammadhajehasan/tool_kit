@@ -31,6 +31,7 @@ IMAGE_SETTINGS = {
     # quality: جودة JPEG لإعادة ترميز الصور (أعلى = جودة أفضل، حجم أكبر)
     # dpi_threshold: الحدّ الذي تبدأ عنده تقليل دقة الصور
     # dpi_target: الدقة المستهدفة للصور الكبيرة (أقل = أصغر حجم)
+    "light":      {"quality": 88, "dpi_target": 200, "dpi_threshold": 300},
     "recommended": {"quality": 75, "dpi_target": 120, "dpi_threshold": 150},
     "extreme":     {"quality": 55, "dpi_target": 72, "dpi_threshold": 100},
 }
@@ -148,6 +149,8 @@ def _compress_with_ghostscript(input_path: str, output_path: str, level: str,
         raise CompressError("Ghostscript not found")
 
     gs_setting = "/ebook" if level == "recommended" else "/screen"
+    if level == "light":
+        gs_setting = "/printer"
     cmd = [
         gs_exe,
         "-sDEVICE=pdfwrite",
@@ -320,3 +323,18 @@ def format_size(num_bytes: int) -> str:
             return f"{size:.1f} {unit}"
         size /= 1024
     return f"{size:.1f} TB"
+
+
+def estimate_size(input_path: str, level: str = "recommended") -> dict:
+    """
+    تقدير سريع للحجم بعد الضغط: يضغط نسخة مؤقتة ويعيد النتائج ثم يحذفها.
+    مفيد ليجرّب المستخدم المستويات قبل الحفظ النهائي.
+    """
+    import tempfile
+    tmp_dir = tempfile.mkdtemp(prefix="pdf_toolbox_est_")
+    try:
+        tmp_out = os.path.join(tmp_dir, "estimated.pdf")
+        result = compress_pdf(input_path, tmp_out, level=level, use_ghostscript=False)
+        return result
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
