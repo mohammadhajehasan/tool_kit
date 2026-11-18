@@ -12,6 +12,10 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # يُستخدم في شرط خطوة التوقيع — الأسرار تُضاف لاحقاً عند جهوزية حساب SignPath
+      SIGNPATH_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      SIGNPATH_ORG: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,6 +35,76 @@ jobs:
       - name: Build EXE
         run: |
           python -m PyInstaller PDF_Toolbox.spec --noconfirm --clean
+
+      # ===== التوقيع الرقمي (SignPath — مجاني للمصادر المفتوحة) =====
+      # يعمل تلقائياً بمجرد إضافة السرين: SIGNPATH_API_TOKEN و SIGNPATH_ORGANIZATION_ID
+      # قبل ذلك: تخطى التوقيع وارفع الملف غير الموقّع (نفس سير العمل دون انقطاع)
+      # تفاصيل الإعداد: docs/SIGNING.md
+      - name: Sign EXE via SignPath
+        if: ${{ env.SIGNPATH_TOKEN != '' && env.SIGNPATH_ORG != '' }}
+        env:
+          PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          CONFIG_SLUG: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $api = "https://app.signpath.io/api/v1/$env:SIGNPATH_ORG"
+          $headers = @{ "X-Api-Key" = $env:SIGNPATH_TOKEN }
+
+          $projectSlug = if ($env:PROJECT_SLUG) { $env:PROJECT_SLUG } else { 'pdf-toolbox' }
+          $policySlug  = if ($env:POLICY_SLUG)  { $env:POLICY_SLUG }  else { 'release-signing' }
+          $configSlug  = if ($env:CONFIG_SLUG)  { $env:CONFIG_SLUG }  else { 'default' }
+
+          # SignPath يوقّع الحاويات (zip) — نضغط الـexe أولاً ثم نفك الناتج الموقّع
+          Compress-Archive -Path dist/PDF_Toolbox.exe -DestinationPath dist/PDF_Toolbox.zip -Force
+
+          $form = @{
+            ProjectSlug                = $projectSlug
+            SigningPolicySlug          = $policySlug
+            ArtifactConfigurationSlug  = $configSlug
+            Description                = "PDF Toolbox $env:GITHUB_REF_NAME (run $env:GITHUB_RUN_ID)"
+            GithubRepository           = $env:GITHUB_REPOSITORY
+            GithubBranch               = $env:GITHUB_REF_NAME
+            GithubRunId                = $env:GITHUB_RUN_ID
+            GithubRunAttempt           = $env:GITHUB_RUN_ATTEMPT
+            File                       = Get-Item dist/PDF_Toolbox.zip
+          }
+
+          Write-Host "Submitting signing request to SignPath…"
+          $resp = Invoke-RestMethod -Method Post -Uri "$api/signing-requests" `
+                    -Headers $headers -Form $form -ResponseHeadersVariable respHeaders
+
+          $requestId = $resp.id
+          if (-not $requestId -and $respHeaders.Location) {
+            $requestId = ($respHeaders.Location -split '/')[-1]
+          }
+          if (-not $requestId) { throw "SignPath: could not read signing request id" }
+          Write-Host "Signing request: $requestId"
+
+          # انتظار اكتمال التوقيع (حتى 20 دقيقة)
+          $deadline = (Get-Date).AddMinutes(20)
+          do {
+            Start-Sleep -Seconds 10
+            $sr = Invoke-RestMethod -Method Get -Uri "$api/signing-requests/$requestId" -Headers $headers
+            Write-Host "Status: $($sr.status)"
+          } while ($sr.status -in @('Pending','InProgress','WaitingForApproval') -and (Get-Date) -lt $deadline)
+
+          if ($sr.status -ne 'Completed') {
+            throw "SignPath signing did not complete (status: $($sr.status))"
+          }
+
+          Invoke-RestMethod -Method Get -Uri "$api/signing-requests/$requestId/signed-artifact" `
+                    -Headers $headers -OutFile dist/PDF_Toolbox_signed.zip
+          Expand-Archive -Path dist/PDF_Toolbox_signed.zip -DestinationPath dist/signed -Force
+          Move-Item -Path dist/signed/PDF_Toolbox.exe -Destination dist/PDF_Toolbox.exe -Force
+          Remove-Item dist/PDF_Toolbox.zip, dist/PDF_Toolbox_signed.zip -ErrorAction SilentlyContinue
+          Write-Host "✅ EXE signed successfully"
+
+      - name: Unsigned notice
+        if: ${{ !(env.SIGNPATH_TOKEN != '' && env.SIGNPATH_ORG != '') }}
+        run: |
+          Write-Host "::notice::تم تخطي التوقيع — أضف أسرار SignPath لتفعيله (راجع docs/SIGNING.md)"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

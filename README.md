@@ -109,6 +109,12 @@ python main.py repair broken.pdf -o fixed.pdf
 
 حمّل أحدث نسخة من صفحة [Releases](../../releases) — ملف exe مستقل للويندوز (لا يحتاج تثبيتاً)، أو مثبّت `PDF_Toolbox_Setup` عبر Inno Setup.
 
+## 🔐 التوقيع الرقمي
+
+exe الإصدارات الموقّعة عبر **SignPath** (مجاني للمصادر المفتوحة) داخل GitHub Actions تلقائياً — فيظهر اسم الناشر في UAC وخصائص الملف بدل "ناشر غير معروف". قبل إتمام إعداد SignPath يُبنى الملف غير الموقّع دون أي فشل.
+
+> دليل الإعداد الكامل خطوة بخطوة: **[docs/SIGNING.md](docs/SIGNING.md)**
+
 ## 🚀 التشغيل من المصدر
 
 ```bash
