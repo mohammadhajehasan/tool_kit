@@ -159,7 +159,7 @@ class Worker(QThread):
 
     def run(self):
         try:
-            # مرّر cancel_check تلقائياً إن قبلت الدالة المعامل
+            # مرّر cancel_check تلقائياَ إن قبلت الدالة المعامل
             import inspect
             try:
                 sig = inspect.signature(self.fn)
@@ -170,14 +170,13 @@ class Worker(QThread):
             result = self.fn(*self.args, **self.kwargs)
             if self.cancel_token.cancelled():
                 self.failed.emit("تم إلغاء العملية")
-                return
-            self.finished_ok.emit(result)
+            else:
+                self.finished_ok.emit(result)
         except InterruptedError as e:
             self.failed.emit(str(e) or "تم إلغاء العملية")
         except Exception as e:
             self.failed.emit(str(e))
-        finally:
-            self.quit()
+        # لا نستدعي self.quit() هنا — QThread يَتوقف تلقائياَ عند انتهاء run()
 
 
 def make_toolbar_button(text: str, danger=False) -> QPushButton:
