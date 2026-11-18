@@ -176,6 +176,8 @@ class Worker(QThread):
             self.failed.emit(str(e) or "تم إلغاء العملية")
         except Exception as e:
             self.failed.emit(str(e))
+        finally:
+            self.quit()
 
 
 def make_toolbar_button(text: str, danger=False) -> QPushButton:
