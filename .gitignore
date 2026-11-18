@@ -53,3 +53,7 @@ setup_main.py
 صور_محولة.pdf
 26K0065_مضغوط*.pdf
 filelist.txt
+
+# commit helper
+_do_commit.py
+_commit_msg.txt
