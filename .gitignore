@@ -48,12 +48,12 @@ build_styles.py
 fix.py
 main_backup.py
 setup_main.py
+_do_commit.py
+_commit_msg.txt
+_make_release.py
+_docs_shots.py
 
 # Generated PDFs (test output)
 صور_محولة.pdf
 26K0065_مضغوط*.pdf
 filelist.txt
-
-# commit helper
-_do_commit.py
-_commit_msg.txt
