@@ -5,8 +5,21 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 
-_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOG_DIR = os.path.join(_BASE, "logs")
+
+def _log_dir() -> str:
+    """logs/ مستقر: بجانب المصدر، أو في %LOCALAPPDATA% داخل exe المجمّع.
+
+    في PyInstaller onefile يكون مجلد الملف المؤقت — يُحذف عند الإغلاق — لذلك
+    نحتاج مجلداً دائماً للسجل حتى تبقى تفاصيل الأعطال قابلة للفحص.
+    """
+    if getattr(sys, "frozen", False):
+        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+        return os.path.join(base, "PDF_Toolbox", "logs")
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, "logs")
+
+
+LOG_DIR = _log_dir()
 LOG_PATH = os.path.join(LOG_DIR, "app.log")
 
 

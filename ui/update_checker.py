@@ -5,7 +5,7 @@ import ssl
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
+from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
 from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import QUrl
@@ -72,40 +72,30 @@ def _show_dialog(parent, latest: str, url: str):
     layout.addWidget(body)
     layout.addLayout(buttons)
 
-    app_inst = QDialog.parentWidget.parentWidget().window().property("_q_app") if hasattr(dlg, "window") else None
-    # Apply active stylesheet simply
-    from PySide6.QtWidgets import QApplication
-    qs = QApplication.instance() and QApplication.instance().styleSheet() or ""
-    dlg.setStyleSheet(qs)
+    # اتبع الثيم النشط للتطبيق
+    app = QApplication.instance()
+    if app is not None:
+        dlg.setStyleSheet(app.styleSheet() or "")
     dlg.exec()
 
 
 class _UpdateSignals(QObject):
-    """وسيط لإرسال إشارات التحديث من خيط الخلفية إلى الخيط الرئيسي بأمان."""
+    """وسيط لإعادة نتيجة الفحص من خيط الخلفية إلى الخيط الرئيسي بأمان."""
     got_update = Signal(str, str)   # tag, url
     failed = Signal()
 
 
-# executor واحد عام لكل طلبات الشبكة
+# خيط Python خلفي — لا نستخدم QThread هنا لتجنب انهيار exe المجمّع
 _EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="update_fetcher")
 _signals = _UpdateSignals()
 
 
 def check_for_update(parent=None, notify_uptodate: bool = False):
     """
-    يفحص التحديث في خلفية Python بدون QThread مباشرة (تجنب crashes في exe المجمّع).
-    النتيجة تُعاد عبرSignals الآمنة إلى الخيط الرئيسي.
+    يفحص التحديث في خيط خلفي ثم يعرض النتيجة في الخيط الرئيسي عبر إشارة queued.
+    notify_uptodate=True يعرض رسالة حتى لو كان الإصدار أحدث (فحص يدوي).
     """
     from ui.toast import show_toast
-
-    def _fetch_and_emit():
-        try:
-            tag, url = fetch_latest()
-            _signals.got_update.emit(tag, url)
-        except Exception:
-            _signals.failed.emit()
-
-    _EXECUTOR.submit(_fetch_and_emit)
 
     def on_ok(tag: str, url: str):
         if is_newer(tag, APP_VERSION):
@@ -117,5 +107,23 @@ def check_for_update(parent=None, notify_uptodate: bool = False):
         if notify_uptodate and parent is not None:
             show_toast(parent, "تعذر الاتصال بالإنترنت — تأكد من اتصالك ثم أعد المحاولة", "warning")
 
+    # افصل أي اتصال سابق كي لا تتراكم النوافذ عند تكرار الفحص
+    try:
+        _signals.got_update.disconnect()
+    except (RuntimeError, TypeError):
+        pass
+    try:
+        _signals.failed.disconnect()
+    except (RuntimeError, TypeError):
+        pass
     _signals.got_update.connect(on_ok, Qt.ConnectionType.QueuedConnection)
     _signals.failed.connect(on_fail, Qt.ConnectionType.QueuedConnection)
+
+    def _fetch_and_emit():
+        try:
+            tag, url = fetch_latest()
+            _signals.got_update.emit(tag, url)
+        except Exception:
+            _signals.failed.emit()
+
+    _EXECUTOR.submit(_fetch_and_emit)
