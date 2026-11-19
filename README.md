@@ -5,7 +5,7 @@
 ![Build](https://github.com/mohammadhajehasan/tool_kit/actions/workflows/build.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![PySide6](https://img.shields.io/badge/PySide6-6.11-green)
-![Release](https://img.shields.io/badge/Release-v2.0.0-8B5CF6)
+![Release](https://img.shields.io/badge/Release-v2.0.1-8B5CF6)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## 🖼️ لقطات الشاشة
@@ -136,7 +136,7 @@ python -m PyInstaller PDF_Toolbox.spec --noconfirm --clean
 
 # أو مثبّت ويندوز (يتطلب Inno Setup 6)
 ISCC.exe installer\PDF_Toolbox.iss
-# الناتج: dist/installer/PDF_Toolbox_Setup_v2.0.0.exe
+# الناتج: dist/installer/PDF_Toolbox_Setup_v2.0.1.exe
 ```
 
 ## 🏗️ البنية
