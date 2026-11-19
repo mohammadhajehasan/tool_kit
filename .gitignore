@@ -42,6 +42,8 @@ logs/
 settings.json
 
 # Legacy one-off helper scripts (not part of the app)
+_*.py
+_*.txt
 _scan_out.txt
 _tune_out.txt
 build_styles.py
