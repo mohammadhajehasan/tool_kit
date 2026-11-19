@@ -6,7 +6,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
-from PySide6.QtCore import Qt, QObject, Signal
+from PySide6.QtCore import Qt, QObject, Signal, QTimer
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import QUrl
 
@@ -85,9 +85,14 @@ class _UpdateSignals(QObject):
     failed = Signal()
 
 
-# خيط Python خلفي — لا نستخدم QThread هنا لتجنب انهيار exe المجمّع
+# خيط Python خلفي واحد مشترك — يُعاد تشغيله كل طلب جديد بآمان
 _EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="update_fetcher")
 _signals = _UpdateSignals()
+
+
+def close():
+    """يُغلِق خيط الفحص الخلفي (يُدعى من MainWindow.closeEvent)."""
+    _EXECUTOR.shutdown(wait=False, cancel_futures=True)
 
 
 def check_for_update(parent=None, notify_uptodate: bool = False):
@@ -99,7 +104,9 @@ def check_for_update(parent=None, notify_uptodate: bool = False):
 
     def on_ok(tag: str, url: str):
         if is_newer(tag, APP_VERSION):
-            _show_dialog(parent, tag, url)
+            # نستخدم singleShot(0) لنضمن أن عرض الحوار يعود للخيط الرئيسي
+            # مباشرة بعد انتهاء هذه الدالة، ما يمنع تشابك حلقات الأحداث.
+            QTimer.singleShot(0, lambda: _show_dialog(parent, tag, url))
         elif notify_uptodate and parent is not None:
             show_toast(parent, tr("uptodate"), "info")
 
@@ -107,14 +114,14 @@ def check_for_update(parent=None, notify_uptodate: bool = False):
         if notify_uptodate and parent is not None:
             show_toast(parent, "تعذر الاتصال بالإنترنت — تأكد من اتصالك ثم أعد المحاولة", "warning")
 
-    # افصل أي اتصال سابق كي لا تتراكم النوافذ عند تكرار الفحص
+    # افصل أي اتصال سابق كي لا تتراكم الإشارات عند تكرار الفحص
     try:
         _signals.got_update.disconnect()
-    except (RuntimeError, TypeError):
+    except Exception:
         pass
     try:
         _signals.failed.disconnect()
-    except (RuntimeError, TypeError):
+    except Exception:
         pass
     _signals.got_update.connect(on_ok, Qt.ConnectionType.QueuedConnection)
     _signals.failed.connect(on_fail, Qt.ConnectionType.QueuedConnection)

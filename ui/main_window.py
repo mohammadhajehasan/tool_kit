@@ -398,3 +398,12 @@ class MainWindow(QMainWindow):
         key = item.data(Qt.UserRole) if item else None
         if key and key in self._tab_index:
             self.stack.setCurrentIndex(self._tab_index[key])
+
+    def closeEvent(self, event):
+        """يُغلِق خيط فاحص التحديث قبل إغلاق النافذة."""
+        try:
+            from ui.update_checker import close as close_update_executor
+            close_update_executor()
+        except Exception:
+            pass
+        super().closeEvent(event)
