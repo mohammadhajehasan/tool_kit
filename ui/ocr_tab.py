@@ -90,7 +90,7 @@ class OcrTab(QWidget):
             b.setObjectName("cardBody")
             b.setWordWrap(True)
             b.setTextInteractionFlags(Qt.TextBrowserInteraction)
-            link = QLabel("⬇️ تحميل Tesseract OCR")
+            link = QPushButton("⬇️ تحميل Tesseract OCR")
             link.setObjectName("secondaryBtn")
             link.setCursor(Qt.PointingHandCursor)
             link.clicked.connect(lambda: QDesktopServices.openUrl(
