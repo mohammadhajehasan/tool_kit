@@ -9,6 +9,7 @@ from PySide6.QtGui import QPainter, QColor, QFont, QPen
 from ui.widgets import DropZone, Worker, CancellationToken
 from ui.styles import chart_colors
 from ui.toast import show_toast
+from ui.i18n import tr_text, tr_fmt
 from core.compress import compress_pdf, estimate_size, format_size, ghostscript_available
 from core.history import record
 
@@ -94,8 +95,8 @@ class CompressChart(QWidget):
         max_val = max(orig, comp, 1)
 
         rows = [
-            ("قبل الضغط", orig, QColor(cc["before"])),
-            ("بعد الضغط", comp, QColor(cc["after"])),
+            (tr_text("قبل الضغط"), orig, QColor(cc["before"])),
+            (tr_text("بعد الضغط"), comp, QColor(cc["after"])),
         ]
         y0 = margin_t
         font = QFont()
@@ -133,7 +134,7 @@ class CompressChart(QWidget):
         painter.drawText(
             QRectF(margin_l, baseline + 2, chart_w, 20),
             Qt.AlignCenter,
-            "الحجم (MB)",
+            tr_text("الحجم (MB)"),
         )
         painter.end()
 
@@ -280,7 +281,7 @@ class CompressTab(QWidget):
         level = self._selected_level()
         self.estimate_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳ جارٍ تقدير الحجم (تجربة الضغط على نسخة مؤقتة)…")
+        self.status_label.setText(tr_text("⏳ جارٍ تقدير الحجم (تجربة الضغط على نسخة مؤقتة)…"))
         self.worker = Worker(estimate_size, self.selected_file, level)
         self.worker.finished_ok.connect(self._on_estimate)
         self.worker.failed.connect(self._on_failure)
@@ -293,9 +294,10 @@ class CompressTab(QWidget):
         orig = format_size(result["original_size"])
         est = format_size(result["compressed_size"])
         pct = result["reduction_percent"]
-        self.status_label.setText(
-            f"📏 تقدير المستوى المحدد:  {orig} ← {est}  (توفير {pct}%)\n"
-            "انقر «ضغط الملف» للحفظ الفعلي")
+        self.status_label.setText(tr_fmt(
+            "📏 تقدير المستوى المحدد:  {orig} ← {est}  (توفير {pct}%)\n"
+            "انقر «ضغط الملف» للحفظ الفعلي",
+            orig=orig, est=est, pct=pct))
         self.status_label.setObjectName("")
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
@@ -307,9 +309,9 @@ class CompressTab(QWidget):
         level = self._selected_level()
         use_gs = self.gs_check.isChecked()
 
-        suggested_name = os.path.splitext(os.path.basename(self.selected_file))[0] + "_مضغوط.pdf"
+        suggested_name = os.path.splitext(os.path.basename(self.selected_file))[0] + tr_text("_مضغوط.pdf")
         output_path, _ = QFileDialog.getSaveFileName(
-            self, "حفظ الملف المضغوط", suggested_name, "PDF Files (*.pdf)"
+            self, tr_text("حفظ الملف المضغوط"), suggested_name, "PDF Files (*.pdf)"
         )
         if not output_path:
             return
@@ -317,7 +319,7 @@ class CompressTab(QWidget):
         self.run_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳  جاري الضغط... يرجى الانتظار")
+        self.status_label.setText(tr_text("⏳  جاري الضغط... يرجى الانتظار"))
         self.status_label.setObjectName("")
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
@@ -340,29 +342,30 @@ class CompressTab(QWidget):
         orig = format_size(result["original_size"])
         comp = format_size(result["compressed_size"])
         pct = result["reduction_percent"]
-        method = result.get("method", "غير معروف")
+        method = result.get("method", tr_text("غير معروف"))
 
         if pct > 0:
-            pct_text = f"تم توفير {pct}% من الحجم"
+            pct_text = tr_fmt("تم توفير {pct}% من الحجم", pct=pct)
             emoji = "✅"
             style = "statusSuccess"
         else:
-            pct_text = "الملف مضغوط أصلاً — لم يتغيّر الحجم كثيراً"
+            pct_text = tr_text("الملف مضغوط أصلاً — لم يتغيّر الحجم كثيراً")
             emoji = "ℹ️"
             style = "statusSuccess"
 
         self.status_label.setObjectName(style)
-        self.status_label.setText(
-            f"{emoji}  تم الضغط بنجاح عبر {method}\n\n"
-            f"    📊  الحجم الأصلي:    {orig}\n"
-            f"    📊  الحجم الجديد:    {comp}\n"
-            f"    📉  {pct_text}\n\n"
-            f"    💾  حُفظ في:  {output_path}"
-        )
+        self.status_label.setText(tr_fmt(
+            "{emoji}  تم الضغط بنجاح عبر {method}\n\n"
+            "    📊  الحجم الأصلي:    {orig}\n"
+            "    📊  الحجم الجديد:    {comp}\n"
+            "    📉  {pct_text}\n\n"
+            "    💾  حُفظ في:  {output_path}",
+            emoji=emoji, method=method, orig=orig, comp=comp,
+            pct_text=pct_text, output_path=output_path))
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
         self.chart.update_chart(result["original_size"], result["compressed_size"])
-        show_toast(self, f"تم الضغط عبر {method} — توفير {pct}%", "success")
+        show_toast(self, tr_fmt("تم الضغط عبر {method} — توفير {pct}%", method=method, pct=pct), "success")
         try:
             record("ضغط PDF", output_path, saved_bytes=result["original_size"] - result["compressed_size"])
         except Exception:
@@ -373,7 +376,7 @@ class CompressTab(QWidget):
         self.run_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
         self.status_label.setObjectName("statusError")
-        self.status_label.setText(f"❌  فشلت العملية:\n{error_msg}")
+        self.status_label.setText(tr_fmt("❌  فشلت العملية:\n{error_msg}", error_msg=error_msg))
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
         self.chart.setVisible(False)

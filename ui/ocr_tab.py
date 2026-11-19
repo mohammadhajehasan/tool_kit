@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QUrl
 
 from ui.widgets import DropZone, Worker
 from ui.toast import show_toast
-from ui.i18n import tr
+from ui.i18n import tr, tr_text, tr_fmt
 from core.ocr import ocr_pdf, available, OcrError, INSTALL_HINT
 from core.history import record
 
@@ -118,7 +118,7 @@ class OcrTab(QWidget):
             return
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳ جارٍ التعرف على النص (قد يستغرق دقائق للملفات الكبيرة)…")
+        self.status_label.setText(tr_text("⏳ جارٍ التعرف على النص (قد يستغرق دقائق للملفات الكبيرة)…"))
         self.worker = Worker(ocr_pdf, self.src_path,
                              os.path.splitext(self.src_path)[0] + "_OCR.pdf",
                              self.lang_combo.currentData(),
@@ -131,12 +131,12 @@ class OcrTab(QWidget):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        show_toast(self, f"✅ أصبح الملف قابلاً للبحث ({result['pages']} صفحة)", "info")
-        self.status_label.setText(f"✅ محفوظ: {result['out']}")
+        show_toast(self, tr_fmt("✅ أصبح الملف قابلاً للبحث ({pages} صفحة)", pages=result['pages']), "info")
+        self.status_label.setText(tr_fmt("✅ محفوظ: {out}", out=result['out']))
         record("OCR", result["out"])
 
     def _on_fail(self, err):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        self.status_label.setText(f"❌ {err}")
+        self.status_label.setText(f"❌ {tr_text(err)}")

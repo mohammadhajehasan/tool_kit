@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt
 
 from ui.widgets import DropZone, Worker
 from ui.toast import show_toast
-from ui.i18n import tr
+from ui.i18n import tr, tr_text, tr_fmt
 from core.extract import extract_text, extract_images, ExtractError
 from core.history import record
 
@@ -110,7 +110,7 @@ class ExtractTab(QWidget):
             return
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳ جارٍ الاستخراج…")
+        self.status_label.setText(tr_text("⏳ جارٍ الاستخراج…"))
         self.worker = Worker(self._do_extract)
         self.worker.finished_ok.connect(self._on_done)
         self.worker.failed.connect(self._on_fail)
@@ -131,7 +131,7 @@ class ExtractTab(QWidget):
         if mode == "text":
             out = stem + ".txt"
             return {"mode": "text", **extract_text(self.src_path, out, pages)}
-        out_dir = stem + "_صور"
+        out_dir = stem + tr_text("_صور")
         return {"mode": "images", **extract_images(self.src_path, out_dir)}
 
     def _on_done(self, result):
@@ -140,13 +140,13 @@ class ExtractTab(QWidget):
         self.run_btn.setEnabled(True)
         if result["mode"] == "text":
             self.out_path = result["out"]
-            show_toast(self, f"✅ استُخرج النص ({result['chars']} حرفاً)", "info")
-            self.status_label.setText(f"✅ النص محفوظ في: {result['out']}")
+            show_toast(self, tr_fmt("✅ استُخرج النص ({chars} حرفاً)", chars=result["chars"]), "info")
+            self.status_label.setText(tr_fmt("✅ النص محفوظ في: {out}", out=result["out"]))
             record("استخراج نص", result["out"])
         else:
             self.out_path = result["dir"]
-            show_toast(self, f"✅ استُخرجت {result['count']} صورة", "info")
-            self.status_label.setText(f"✅ {result['count']} صورة في: {result['dir']}")
+            show_toast(self, tr_fmt("✅ استُخرجت {count} صورة", count=result["count"]), "info")
+            self.status_label.setText(tr_fmt("✅ {count} صورة في: {dir}", count=result["count"], dir=result["dir"]))
             record("استخراج صور", result["dir"])
         self.open_btn.setVisible(True)
 
@@ -154,7 +154,7 @@ class ExtractTab(QWidget):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        self.status_label.setText(f"❌ {err}")
+        self.status_label.setText(f"❌ {tr_text(err)}")
 
     def _open_folder(self):
         if not self.out_path:

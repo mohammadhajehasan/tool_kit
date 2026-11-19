@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QFrame, QPushButton
 from PySide6.QtCore import Qt
 
-from ui.i18n import tr
+from ui.i18n import tr, tr_text
 from core.history import get_activity, format_size
 from version import APP_VERSION
 
@@ -181,7 +181,7 @@ class InfoTab(QWidget):
             for r in act["recent"][:5]:
                 import os
                 name = os.path.basename(r.get("path", "")) or r.get("path", "")
-                row = QLabel(f"  •  [{r.get('time', '')}] {r.get('tool', '')} — {name}")
+                row = QLabel(f"  •  [{r.get('time', '')}] {tr_text(r.get('tool', ''))} — {name}")
                 row.setObjectName("hintLabel")
                 row.setToolTip(r.get("path", ""))
                 v.addWidget(row)

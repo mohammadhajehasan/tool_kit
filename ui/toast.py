@@ -3,6 +3,8 @@
 from PySide6.QtWidgets import QLabel, QGraphicsOpacityEffect, QWidget
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
 
+from ui.i18n import rtl, tr_text
+
 
 class Toast(QLabel):
     def __init__(self, parent: QWidget, message: str, kind: str = "info", duration_ms: int = 3200):
@@ -10,7 +12,7 @@ class Toast(QLabel):
         self.setObjectName("toastNotification")
         self.setProperty("kind", kind)
         self.setWordWrap(True)
-        self.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.setAlignment((Qt.AlignRight if rtl() else Qt.AlignLeft) | Qt.AlignVCenter)
         self.setMargin(14)
         self.setMinimumWidth(260)
         self.setMaximumWidth(420)
@@ -67,4 +69,4 @@ def show_toast(parent: QWidget, message: str, kind: str = "info", duration_ms: i
         return None
     # استخدم النافذة الرئيسية إن أمكن لتثبيت الموقع
     host = parent.window() if hasattr(parent, "window") else parent
-    return Toast(host, message, kind=kind, duration_ms=duration_ms)
+    return Toast(host, tr_text(message), kind=kind, duration_ms=duration_ms)

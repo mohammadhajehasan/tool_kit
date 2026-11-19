@@ -6,6 +6,8 @@ from PySide6.QtWidgets import (
 
 from ui.widgets import DropZone, Worker, CancellationToken
 from ui.toast import show_toast
+from ui import i18n
+from ui.i18n import tr_text, tr_fmt
 from core.pdf_diff import compare_pdfs
 
 
@@ -92,7 +94,7 @@ class DiffTab(QWidget):
             self.file_b = paths[0]
         a = os.path.basename(self.file_a) if self.file_a else "—"
         b = os.path.basename(self.file_b) if self.file_b else "—"
-        self.meta.setText(f"أ: {a}\nب: {b}")
+        self.meta.setText(tr_fmt("أ: {a}\nب: {b}", a=a, b=b))
         self.run_btn.setEnabled(bool(self.file_a and self.file_b))
 
     def _cancel(self):
@@ -106,7 +108,7 @@ class DiffTab(QWidget):
         self.run_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.progress.setVisible(True)
-        self.summary.setText("جاري المقارنة…")
+        self.summary.setText(tr_text("جاري المقارنة…"))
 
         self.worker = Worker(compare_pdfs, self.file_a, self.file_b, cancel_token=token)
         self.worker.finished_ok.connect(self._ok)
@@ -117,16 +119,22 @@ class DiffTab(QWidget):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
-        self.summary.setText(
-            f"صفحات أ={result.pages_a} | ب={result.pages_b} — "
-            f"إضافات: {result.added} | حذف: {result.removed}"
-        )
-        self.viewer.setHtml(result.html)
-        show_toast(self, "اكتملت المقارنة", "success")
+        self.summary.setText(tr_fmt(
+            "صفحات أ={a} | ب={b} — إضافات: {added} | حذف: {removed}",
+            a=result.pages_a, b=result.pages_b,
+            added=result.added, removed=result.removed))
+        html = result.html
+        if not i18n.rtl():
+            html = html.replace("direction:rtl", "direction:ltr", 1)
+            html = html.replace("نتيجة المقارنة", "Comparison result")
+            import re
+            html = re.sub(r"—+ صفحة (\d+) —+", r"—— Page \1 ——", html)
+        self.viewer.setHtml(html)
+        show_toast(self, tr_text("اكتملت المقارنة"), "success")
 
     def _fail(self, err):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
-        self.summary.setText(f"❌ {err}")
+        self.summary.setText(f"❌ {tr_text(err)}")
         show_toast(self, err, "error")

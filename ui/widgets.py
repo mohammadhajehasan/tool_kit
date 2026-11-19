@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QThread, QSize
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 
+from ui.i18n import tr_text
+
 
 class CancellationToken:
     """علم إلغاء مشترك بين الواجهة وخيط المعالجة."""
@@ -24,7 +26,7 @@ class CancellationToken:
     def check(self):
         """يرمي InterruptedError إذا طُلب الإلغاء"""
         if self._cancelled:
-            raise InterruptedError("تم إلغاء العملية")
+            raise InterruptedError(tr_text("تم إلغاء العملية"))
 
 
 class DropZone(QFrame):
@@ -80,9 +82,9 @@ class DropZone(QFrame):
 
     def _open_dialog(self):
         if self.multiple:
-            paths, _ = QFileDialog.getOpenFileNames(self, "اختر الملفات", "", self.file_filter)
+            paths, _ = QFileDialog.getOpenFileNames(self, tr_text("اختر الملفات"), "", self.file_filter)
         else:
-            path, _ = QFileDialog.getOpenFileName(self, "اختر ملف", "", self.file_filter)
+            path, _ = QFileDialog.getOpenFileName(self, tr_text("اختر ملف"), "", self.file_filter)
             paths = [path] if path else []
         if paths:
             self.filesDropped.emit(paths)
@@ -169,13 +171,13 @@ class Worker(QThread):
                 pass
             result = self.fn(*self.args, **self.kwargs)
             if self.cancel_token.cancelled():
-                self.failed.emit("تم إلغاء العملية")
+                self.failed.emit(tr_text("تم إلغاء العملية"))
             else:
                 self.finished_ok.emit(result)
         except InterruptedError as e:
-            self.failed.emit(str(e) or "تم إلغاء العملية")
+            self.failed.emit(tr_text(str(e)) or tr_text("تم إلغاء العملية"))
         except Exception as e:
-            self.failed.emit(str(e))
+            self.failed.emit(tr_text(str(e)))
         # لا نستدعي self.quit() هنا — QThread يَتوقف تلقائياَ عند انتهاء run()
 
 

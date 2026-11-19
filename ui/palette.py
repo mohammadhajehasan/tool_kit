@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from ui.i18n import tr
+from ui.i18n import tr, tr_text
 
 
 class CommandPalette(QDialog):
@@ -42,7 +42,7 @@ class CommandPalette(QDialog):
             self.list.setCurrentRow(0)
         layout.addWidget(self.list)
 
-        hint = QLabel("Enter للانتقال  •  Esc للإغلاق")
+        hint = QLabel(tr_text("Enter للانتقال  •  Esc للإغلاق"))
         hint.setObjectName("hintLabel")
         hint.setAlignment(Qt.AlignCenter)
         layout.addWidget(hint)

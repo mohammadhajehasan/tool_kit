@@ -149,7 +149,7 @@ QLabel {{
 QWidget#sidebarContainer {{
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
         stop:0 {bg_sidebar_1}, stop:1 {bg_sidebar_2});
-    border-left: 1px solid {border_light};
+    border-{END_SIDE}: 1px solid {border_light};
 }}
 QWidget#sidebarHeader {{
     background: transparent;
@@ -345,7 +345,7 @@ QComboBox::down-arrow {{
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
     border-top: 6px solid {text_muted};
-    margin-right: 4px;
+    margin-{END_SIDE}: 4px;
 }}
 QComboBox QAbstractItemView {{
     background-color: {bg_surface};
@@ -793,5 +793,11 @@ def get_style(theme: str = "auto") -> str:
     else:
         set_active_theme("light")
         c = LIGHT_COLORS
-    tokens = {**c, "FONT_MD": FONT_MD}
+    # الجانب المقابل للشريط الجانبي: يسار في RTL (الشريط يمين) ويمين في LTR
+    try:
+        from ui.i18n import rtl
+        end_side = "left" if rtl() else "right"
+    except Exception:
+        end_side = "left"
+    tokens = {**c, "FONT_MD": FONT_MD, "END_SIDE": end_side}
     return _build(_UI_QSS, tokens)

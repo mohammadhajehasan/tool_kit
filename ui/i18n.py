@@ -188,3 +188,79 @@ def set_lang(value: str):
 def tr(key: str) -> str:
     """ترجمة مفتاح — يعود للعربية إن لم توجد الترجمة."""
     return STRINGS.get(_LANG, STRINGS["ar"]).get(key) or STRINGS["ar"].get(key, key)
+
+
+def tr_text(text: str) -> str:
+    """يترجم نصاً عربياً ظاهراً للواجهة (ثابت أو ديناميكي) عند تفعيل الإنجليزية."""
+    if _LANG != "en" or not text:
+        return text
+    from ui.en_text import lookup
+    return lookup(text)
+
+
+def tr_fmt(template: str, **kwargs) -> str:
+    """يترجم قالباً عربياً يحتوي {placeholders} ثم يملؤه."""
+    return tr_text(template).format(**kwargs)
+
+
+def translate_widget_tree(root):
+    """يترجم كل النصوص الظاهرة في شجرة ودجات بُنيت بالعربية.
+
+    يُستدعى مرة واحدة بعد بناء الواجهة (وعند الإنجليزية فقط). لا يلمس
+    محتوى حقول الإدخال أو بيانات المستخدم — النصوص فقط.
+    """
+    if _LANG != "en" or root is None:
+        return
+    from PySide6.QtWidgets import (
+        QWidget, QLabel, QAbstractButton, QLineEdit, QTextEdit,
+        QPlainTextEdit, QComboBox, QListWidget, QTabWidget, QGroupBox,
+    )
+
+    widgets = [root] + root.findChildren(QWidget)
+    for w in widgets:
+        try:
+            if isinstance(w, QLabel):
+                _retranslate(w, "text", "setText")
+            elif isinstance(w, QAbstractButton):
+                _retranslate(w, "text", "setText")
+            elif isinstance(w, QLineEdit):
+                _retranslate(w, "placeholderText", "setPlaceholderText")
+            elif isinstance(w, (QTextEdit, QPlainTextEdit)):
+                _retranslate(w, "placeholderText", "setPlaceholderText")
+            elif isinstance(w, QTabWidget):
+                for i in range(w.count()):
+                    w.setTabText(i, tr_text(w.tabText(i)))
+            elif isinstance(w, QGroupBox):
+                _retranslate(w, "title", "setTitle")
+
+            # التلميحات
+            tip = w.toolTip()
+            if tip:
+                w.setToolTip(tr_text(tip))
+
+            # العناصر المنسدلة
+            if isinstance(w, QComboBox):
+                for i in range(w.count()):
+                    w.setItemText(i, tr_text(w.itemText(i)))
+            elif isinstance(w, QListWidget):
+                for i in range(w.count()):
+                    item = w.item(i)
+                    if item is not None:
+                        item.setText(tr_text(item.text()))
+                        if item.toolTip():
+                            item.setToolTip(tr_text(item.toolTip()))
+
+            # عنوان النافذة
+            title = w.windowTitle()
+            if title:
+                w.setWindowTitle(tr_text(title))
+        except (RuntimeError, AttributeError):
+            continue
+
+
+def _retranslate(widget, getter: str, setter: str):
+    """يقرأ خاصية نصية ويستبدلها إن وُجدت ترجمة مختلفة."""
+    value = getattr(widget, getter)()
+    new_value = tr_text(value)
+    if new_value != value:
+        getattr(widget, setter)(new_value)

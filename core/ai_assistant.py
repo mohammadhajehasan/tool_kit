@@ -128,31 +128,46 @@ def ask_about_document(
     api_key: str = "",
     api_base: str = "https://api.openai.com/v1",
     ollama_base: str = "http://127.0.0.1:11434",
+    lang: str = "ar",
     cancel_check=None,
 ) -> str:
     """
     يسأل عن محتوى المستند.
     mode: 'ollama' | 'api'
+    lang: لغة الإجابة المطلوبة ('ar' | 'en')
     """
+    english = lang == "en"
     if cancel_check and cancel_check():
-        raise AiError("تم إلغاء العملية")
+        raise AiError("Operation cancelled" if english else "تم إلغاء العملية")
     text = extract_document_text(pdf_path)
-    system = (
-        "أنت مساعد مستندات يعمل محلياً ويحافظ على الخصوصية. "
-        "أجب بالعربية باختصار ووضوح اعتماداً فقط على نص المستند المرفق. "
-        "إن لم تجد المعلومة في النص فقل ذلك صراحة."
-    )
-    user = f"نص المستند:\n{text}\n\nسؤال المستخدم:\n{question}"
+    if english:
+        system = (
+            "You are a privacy-preserving local document assistant. "
+            "Answer in English briefly and clearly, based only on the attached document text. "
+            "If the information is not in the text, say so explicitly."
+        )
+        user = f"Document text:\n{text}\n\nUser question:\n{question}"
+    else:
+        system = (
+            "أنت مساعد مستندات يعمل محلياً ويحافظ على الخصوصية. "
+            "أجب بالعربية باختصار ووضوح اعتماداً فقط على نص المستند المرفق. "
+            "إن لم تجد المعلومة في النص فقل ذلك صراحة."
+        )
+        user = f"نص المستند:\n{text}\n\nسؤال المستخدم:\n{question}"
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
     if mode == "api":
         if not api_key.strip():
-            raise AiError("أدخل مفتاح API أولاً")
+            raise AiError("Enter an API key first" if english else "أدخل مفتاح API أولاً")
         return _chat_openai_compatible(messages, model=model or "gpt-4o-mini", api_key=api_key, base_url=api_base)
     if not ollama_available(ollama_base):
         raise AiError(
+            "Ollama is not available locally.\n"
+            "Install it from https://ollama.com and run a model such as: ollama run llama3.2\n"
+            "Or use the optional cloud API mode."
+            if english else
             "Ollama غير متاح محلياً.\n"
             "ثبّته من https://ollama.com وشغّل نموذجاً مثل: ollama run llama3.2\n"
             "أو استخدم وضع API السحابي الاختياري."
@@ -168,15 +183,22 @@ def summarize_document(
     api_key: str = "",
     api_base: str = "https://api.openai.com/v1",
     ollama_base: str = "http://127.0.0.1:11434",
+    lang: str = "ar",
     cancel_check=None,
 ) -> str:
+    question = (
+        "Summarize this document in clear bullet points and mention the key clauses if present (contracts/reports)."
+        if lang == "en" else
+        "لخّص هذا المستند في نقاط واضحة، واذكر أهم البنود إن وُجدت (عقود/تقارير)."
+    )
     return ask_about_document(
         pdf_path,
-        "لخّص هذا المستند في نقاط واضحة، واذكر أهم البنود إن وُجدت (عقود/تقارير).",
+        question,
         mode=mode,
         model=model,
         api_key=api_key,
         api_base=api_base,
         ollama_base=ollama_base,
+        lang=lang,
         cancel_check=cancel_check,
     )

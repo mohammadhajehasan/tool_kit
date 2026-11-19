@@ -10,6 +10,7 @@ from PySide6.QtGui import QDesktopServices
 
 from ui.widgets import DropZone, FileListWidget, make_toolbar_button
 from ui.compress_tab import OptionCard
+from ui.i18n import tr_text, tr_fmt
 from core.archive_extract import (
     extract_many, is_supported_archive, archives_availability,
 )
@@ -163,9 +164,9 @@ class ArchiveTab(QWidget):
             tips.append("zstandard")
         if tips:
             self.status_label.setObjectName("hintLabel")
-            self.status_label.setText(
-                "ℹ️ صيغ تعمل بعد تثبيت مكتباتها الاختيارية: pip install " + " / ".join(tips)
-            )
+            self.status_label.setText(tr_fmt(
+                "ℹ️ صيغ تعمل بعد تثبيت مكتباتها الاختيارية: pip install {tips}",
+                tips=" / ".join(tips)))
             self.status_label.style().unpolish(self.status_label)
             self.status_label.style().polish(self.status_label)
 
@@ -186,7 +187,7 @@ class ArchiveTab(QWidget):
 
         if skipped:
             self._show_status("statusError",
-                              f"⛔  تم تجاهل {skipped} ملف بصيغة غير مدعومة")
+                              tr_fmt("⛔  تم تجاهل {n} ملف بصيغة غير مدعومة", n=skipped))
         self.file_list.add_files(supported)
         self._update_state()
 
@@ -198,7 +199,7 @@ class ArchiveTab(QWidget):
         self.run_btn.setEnabled(ready)
 
     def _choose_folder(self):
-        d = QFileDialog.getExistingDirectory(self, "اختر مجلد الإخراج")
+        d = QFileDialog.getExistingDirectory(self, tr_text("اختر مجلد الإخراج"))
         if d:
             self.folder_path = d
             self.folder_label.setText(f"📁  {d}")
@@ -212,14 +213,15 @@ class ArchiveTab(QWidget):
         dest_dir = None
         if self.custom_card.radio.isChecked():
             if not self.folder_path:
-                QMessageBox.information(self, "تنبيه", "اختر مجلد الإخراج أولاً")
+                QMessageBox.information(self, tr_text("تنبيه"),
+                                        tr_text("اختر مجلد الإخراج أولاً"))
                 return
             dest_dir = self.folder_path
 
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
         self.progress.setValue(0)
-        self._show_status("", "⏳  جاري فك ضغط الأرشيفات…")
+        self._show_status("", tr_text("⏳  جاري فك ضغط الأرشيفات…"))
 
         self.worker = ExtractWorker(paths, dest_dir)
         self.worker.progress_msg.connect(self._on_progress_msg)
@@ -229,7 +231,7 @@ class ArchiveTab(QWidget):
         self.worker.start()
 
     def _on_progress_msg(self, msg):
-        self.status_label.setText(f"⏳  {msg}")
+        self.status_label.setText(tr_fmt("⏳  {msg}", msg=tr_text(msg)))
 
     def _on_success(self, results):
         self.progress.setVisible(False)
@@ -239,19 +241,20 @@ class ArchiveTab(QWidget):
         failed = [r for r in results if not r.get("dest")]
 
         if not ok:
-            self._on_failure(failed[0]["error"] if failed else "لا نتائج")
+            self._on_failure(tr_text(failed[0]["error"]) if failed else tr_text("لا نتائج"))
             return
 
         total_files = sum(r["files"] for r in ok)
-        lines = [f"• {os.path.basename(r['archive'])}  →  {r['files']} ملف" for r in ok]
-        text = (
-            f"✅  تم فك ضغط {len(ok)} أرشيف بنجاح — إجمالي الملفات: {total_files}\n\n"
-            + "\n".join(lines)
-        )
+        lines = [tr_fmt("• {name}  →  {files} ملف",
+                        name=os.path.basename(r['archive']), files=r['files']) for r in ok]
+        text = tr_fmt(
+            "✅  تم فك ضغط {n} أرشيف بنجاح — إجمالي الملفات: {total}\n\n{lines}",
+            n=len(ok), total=total_files, lines="\n".join(lines))
         if failed:
-            text += "\n\n⚠️  فشل تحليل ما يلي:\n" + "\n".join(
-                f"• {os.path.basename(f['archive'])}: {f['error']}" for f in failed
+            failed_lines = "\n".join(
+                f"• {os.path.basename(f['archive'])}: {tr_text(f['error'])}" for f in failed
             )
+            text += tr_fmt("\n\n⚠️  فشل تحليل ما يلي:\n{lines}", lines=failed_lines)
         self._show_status("statusSuccess", text)
 
         if self.open_check.isChecked():
@@ -260,4 +263,4 @@ class ArchiveTab(QWidget):
     def _on_failure(self, error_msg):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        self._show_status("statusError", f"❌  فشلت العملية:\n{error_msg}")
+        self._show_status("statusError", tr_fmt("❌  فشلت العملية:\n{error_msg}", error_msg=tr_text(error_msg)))

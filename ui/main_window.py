@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 
 from ui import i18n
-from ui.i18n import tr
+from ui.i18n import tr, tr_text
 from ui.compress_tab import CompressTab
 from ui.split_tab import SplitTab
 from ui.merge_tab import MergeTab
@@ -120,12 +120,13 @@ class MainWindow(QMainWindow):
 
     def _theme_label(self) -> str:
         if self.theme_setting == "auto":
-            return tr("theme_auto").format(mode="داكن" if self._resolved == "dark" else "فاتح")
+            mode = tr_text("داكن") if self._resolved == "dark" else tr_text("فاتح")
+            return tr("theme_auto").format(mode=mode)
         return tr("theme_dark") if self.theme_setting == "dark" else tr("theme_light")
 
     def _update_theme_btn(self):
         self.theme_btn.setText(self._theme_label())
-        self.theme_btn.setToolTip("تبديل الثيم" if i18n.rtl() else "Switch theme")
+        self.theme_btn.setToolTip(tr_text("تبديل الثيم"))
 
     def _refresh_theme_widgets(self):
         """يعيد تلوين البطاقات والرسوم التي تخزن حالتها محلياً"""
@@ -141,7 +142,7 @@ class MainWindow(QMainWindow):
         new_lang = "en" if i18n.lang() == "ar" else "ar"
         i18n.set_lang(new_lang)
         box = QMessageBox(self)
-        box.setWindowTitle("اللغة / Language")
+        box.setWindowTitle(tr_text("اللغة / Language"))
         box.setText(tr("lang_switch_msg"))
         restart = box.addButton(tr("restart_now"), QMessageBox.AcceptRole)
         box.addButton(tr("later"), QMessageBox.RejectRole)
@@ -330,6 +331,8 @@ class MainWindow(QMainWindow):
 
         self.sidebar.setCurrentRow(self._tool_rows["compress"])
         self._update_theme_btn()
+        # ترجمة كل النصوص الثابتة في التبويبات المبنية بالعربية
+        i18n.translate_widget_tree(self)
 
     # ---------- اختصارات ولوحة الأوامر ----------
     def _install_shortcuts(self):
@@ -361,7 +364,7 @@ class MainWindow(QMainWindow):
             "info": tr("t_info"), "developer": tr("t_developer"),
         }
         actions = [(labels[k], k) for k in self._tool_rows]
-        actions.append(("🎨 " + tr("theme_dark"), "__theme__"))
+        actions.append(("🎨 " + tr_text("تبديل الثيم"), "__theme__"))
         actions.append(("🌐 " + tr("lang_btn"), "__lang__"))
         palette = CommandPalette(actions, self)
         palette.jump_callback = self._palette_jump

@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap, QImage
 
 from ui.widgets import DropZone, Worker
+from ui.i18n import tr_text, tr_fmt
 from core.split import (
     get_page_count, parse_page_ranges, extract_pages,
     split_to_individual_files, render_page_thumbnails, SplitError,
@@ -39,7 +40,7 @@ class ClickablePageCard(QFrame):
         self.v.addWidget(self.image_label)
 
         # رقم الصفحة
-        self.num_label = QLabel(f"صفحة {page_index + 1}")
+        self.num_label = QLabel(tr_fmt("صفحة {n}", n=page_index + 1))
         self.num_label.setAlignment(Qt.AlignCenter)
         self.v.addWidget(self.num_label)
 
@@ -283,17 +284,18 @@ class SplitTab(QWidget):
             return
         path = paths[0]
         if not path.lower().endswith(".pdf"):
-            QMessageBox.warning(self, "خطأ", "الرجاء اختيار ملف PDF فقط")
+            QMessageBox.warning(self, tr_text("خطأ"), tr_text("الرجاء اختيار ملف PDF فقط"))
             return
         try:
             self.total_pages = get_page_count(path)
         except Exception as e:
-            QMessageBox.critical(self, "خطأ", f"تعذّر قراءة الملف: {e}")
+            QMessageBox.critical(self, tr_text("خطأ"),
+                                 tr_fmt("تعذّر قراءة الملف: {err}", err=e))
             return
 
         self.selected_file = path
         self.file_label.setText(f"📄 {os.path.basename(path)}")
-        self.hint_label.setText(f"عدد صفحات الملف: {self.total_pages}")
+        self.hint_label.setText(tr_fmt("عدد صفحات الملف: {n}", n=self.total_pages))
         self.selected_title.setText("")
         self.range_input.setEnabled(True)
         self.run_btn.setEnabled(True)
@@ -307,9 +309,10 @@ class SplitTab(QWidget):
             self.marks_count = 0
         if self.marks_count:
             self.bookmarks_radio.setEnabled(True)
-            self.bookmarks_radio.setToolTip(f"الملف يحتوي {self.marks_count} فصلاً في المستوى الأول")
-            if not self.hint_label.text().endswith("—"):
-                self.hint_label.setText(self.hint_label.text() + f"  •  📚 {self.marks_count} فصلاً")
+            self.bookmarks_radio.setToolTip(
+                tr_fmt("الملف يحتوي {n} فصلاً في المستوى الأول", n=self.marks_count))
+            self.hint_label.setText(
+                self.hint_label.text() + tr_fmt("  •  📚 {n} فصلاً", n=self.marks_count))
         else:
             self.bookmarks_radio.setEnabled(False)
             if self.bookmarks_radio.isChecked():
@@ -341,7 +344,7 @@ class SplitTab(QWidget):
         """يُستدعى عند النقر على الصفحات — يحدّث حقل النطاق"""
         if not selected_pages:
             self.range_input.setText("")
-            self.selected_title.setText("لم يتم تحديد أي صفحات")
+            self.selected_title.setText(tr_text("لم يتم تحديد أي صفحات"))
             self.selected_title.setStyleSheet("color: #dc2626; font-size: 12px; font-weight: 700;")
             return
 
@@ -370,7 +373,7 @@ class SplitTab(QWidget):
         self.range_input.setText(range_text)
         self.range_input.blockSignals(False)
 
-        self.selected_title.setText(f"تم تحديد {len(selected_pages)} صفحة")
+        self.selected_title.setText(tr_fmt("تم تحديد {n} صفحة", n=len(selected_pages)))
         self.selected_title.setStyleSheet("color: #16a34a; font-size: 12px; font-weight: 700;")
 
     def _on_range_changed(self, text):
@@ -378,12 +381,12 @@ class SplitTab(QWidget):
             return
         try:
             pages = parse_page_ranges(text, self.total_pages)
-            self.selected_title.setText(f"سيتم تحديد {len(pages)} صفحة")
+            self.selected_title.setText(tr_fmt("سيتم تحديد {n} صفحة", n=len(pages)))
             self.selected_title.setStyleSheet("color: #16a34a; font-size: 12px; font-weight: 700;")
             if self.all_images:
                 self.page_grid.set_selected(pages)
         except SplitError as e:
-            self.selected_title.setText(str(e))
+            self.selected_title.setText(tr_text(str(e)))
             self.selected_title.setStyleSheet("color: #dc2626; font-size: 12px; font-weight: 700;")
             if self.all_images:
                 self.page_grid.set_selected(set())
@@ -394,43 +397,49 @@ class SplitTab(QWidget):
 
         # وضع الفصول: تقسيم حسب إشارات الإرشاد دون حاجة لتحديد صفحات
         if self.bookmarks_radio.isChecked() and self.bookmarks_radio.isEnabled():
-            output_dir = QFileDialog.getExistingDirectory(self, "اختر مجلد الحفظ")
+            output_dir = QFileDialog.getExistingDirectory(self, tr_text("اختر مجلد الحفظ"))
             if not output_dir:
                 return
             base_name = os.path.splitext(os.path.basename(self.selected_file))[0]
             self._start_worker(
                 split_by_bookmarks, self.selected_file, output_dir,
-                success_msg=lambda r: f"✅ تم التقسيم إلى {len(r)} ملف حسب الفصول\nحُفظت في: {output_dir}")
+                success_msg=lambda r: tr_fmt(
+                    "✅ تم التقسيم إلى {n} ملف حسب الفصول\nحُفظت في: {output_dir}",
+                    n=len(r), output_dir=output_dir))
             return
 
         try:
             pages = parse_page_ranges(self.range_input.text(), self.total_pages)
         except SplitError as e:
-            QMessageBox.warning(self, "خطأ في تحديد الصفحات", str(e))
+            QMessageBox.warning(self, tr_text("خطأ في تحديد الصفحات"), tr_text(str(e)))
             return
 
         base_name = os.path.splitext(os.path.basename(self.selected_file))[0]
 
         if self.single_radio.isChecked():
-            suggested_name = f"{base_name}_مقتطف.pdf"
+            suggested_name = base_name + tr_text("_مقتطف.pdf")
             output_path, _ = QFileDialog.getSaveFileName(
-                self, "حفظ الملف الناتج", suggested_name, "PDF Files (*.pdf)"
+                self, tr_text("حفظ الملف الناتج"), suggested_name, "PDF Files (*.pdf)"
             )
             if not output_path:
                 return
             self._start_worker(extract_pages, self.selected_file, pages, output_path,
-                                success_msg=lambda r: f"✅ تم استخراج {len(pages)} صفحة بنجاح\nحُفظ في: {output_path}")
+                                success_msg=lambda r: tr_fmt(
+                                    "✅ تم استخراج {n} صفحة بنجاح\nحُفظ في: {output_path}",
+                                    n=len(pages), output_path=output_path))
         else:
-            output_dir = QFileDialog.getExistingDirectory(self, "اختر مجلد الحفظ")
+            output_dir = QFileDialog.getExistingDirectory(self, tr_text("اختر مجلد الحفظ"))
             if not output_dir:
                 return
             self._start_worker(split_to_individual_files, self.selected_file, output_dir, pages,
-                                success_msg=lambda r: f"✅ تم إنشاء {len(r)} ملف مستقل\nحُفظت في: {output_dir}")
+                                success_msg=lambda r: tr_fmt(
+                                    "✅ تم إنشاء {n} ملف مستقل\nحُفظت في: {output_dir}",
+                                    n=len(r), output_dir=output_dir))
 
     def _start_worker(self, fn, *args, success_msg):
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("جاري التقطيع...")
+        self.status_label.setText(tr_text("جاري التقطيع..."))
 
         self.worker = Worker(fn, *args)
         self.worker.finished_ok.connect(lambda res: self._on_success(success_msg(res)))
@@ -449,6 +458,6 @@ class SplitTab(QWidget):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
         self.status_label.setObjectName("statusError")
-        self.status_label.setText(f"❌ فشلت العملية: {error_msg}")
+        self.status_label.setText(tr_fmt("❌ فشلت العملية: {error_msg}", error_msg=error_msg))
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)

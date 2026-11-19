@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt
 
 from ui.widgets import DropZone, Worker
 from ui.toast import show_toast
-from ui.i18n import tr
+from ui.i18n import tr, tr_text, tr_fmt
 from core.stamp import watermark, add_page_numbers, StampError
 from core.history import record
 
@@ -82,7 +82,8 @@ class StampTab(QWidget):
 
         opts1.addWidget(QLabel("اللون"))
         self.color_combo = QComboBox()
-        self.color_combo.addItems(list(COLORS.keys()))
+        for color_name in COLORS:
+            self.color_combo.addItem(color_name, color_name)
         opts1.addWidget(self.color_combo)
         opts1.addStretch()
         wm.addLayout(opts1)
@@ -163,7 +164,7 @@ class StampTab(QWidget):
 
     def _pick_image(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "اختر صورة العلامة المائية", "",
+            self, tr_text("اختر صورة العلامة المائية"), "",
             "Images (*.png *.jpg *.jpeg *.webp)")
         if path:
             self.image_path = path
@@ -179,7 +180,7 @@ class StampTab(QWidget):
             return
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳ جارٍ التطبيق…")
+        self.status_label.setText(tr_text("⏳ جارٍ التطبيق…"))
         self.worker = Worker(self._do_work, use_image)
         self.worker.finished_ok.connect(self._on_done)
         self.worker.failed.connect(self._on_fail)
@@ -191,7 +192,7 @@ class StampTab(QWidget):
         # 1) العلامة المائية (إن طُلبت)
         apply_wm = use_image and self.image_path or (not use_image and self.wm_text.text().strip())
         if apply_wm:
-            tmp = stem + "_علامة_مؤقت.pdf"
+            tmp = stem + tr_text("_علامة_مؤقت.pdf")
             if use_image:
                 watermark(self.src_path, tmp, image_path=self.image_path,
                           opacity=self.opacity_combo.currentData(),
@@ -201,13 +202,13 @@ class StampTab(QWidget):
                           opacity=self.opacity_combo.currentData(),
                           angle=self.angle_combo.currentData(),
                           fontsize=self.size_combo.currentData(),
-                          color=COLORS.get(self.color_combo.currentText()))
+                          color=COLORS.get(self.color_combo.currentData()))
             src = tmp
         else:
             src = self.src_path
 
         # 2) الترقيم (دائماً — الصيغة الافتراضية مفيدة)
-        out = stem + "_نهائي.pdf"
+        out = stem + tr_text("_نهائي.pdf")
         add_page_numbers(src, out, mode=self.num_mode.currentData(),
                          position=self.num_pos.currentData())
         if src != self.src_path:
@@ -221,17 +222,17 @@ class StampTab(QWidget):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        msg = "✅ تم التطبيق"
+        msg = tr_text("✅ تم التطبيق")
         if result["watermark"]:
-            msg += " (علامة مائية + ترقيم)"
+            msg += tr_text(" (علامة مائية + ترقيم)")
         else:
-            msg += " (ترقيم)"
+            msg += tr_text(" (ترقيم)")
         show_toast(self, msg, "info")
-        self.status_label.setText(f"✅ محفوظ: {result['out']}")
+        self.status_label.setText(tr_fmt("✅ محفوظ: {out}", out=result['out']))
         record("علامة مائية وترقيم", result["out"])
 
     def _on_fail(self, err):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        self.status_label.setText(f"❌ {err}")
+        self.status_label.setText(f"❌ {tr_text(err)}")

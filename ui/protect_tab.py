@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 
 from ui.widgets import DropZone, Worker
 from ui.toast import show_toast
-from ui.i18n import tr
+from ui.i18n import tr, tr_text, tr_fmt
 from core.protect import protect, unprotect, is_encrypted, ProtectError
 from core.history import record
 
@@ -112,8 +112,12 @@ class ProtectTab(QWidget):
             pass
         if encrypted:
             self.decrypt_rb.setChecked(True)
-        self.status_label.setText(
-            f"📄 {os.path.basename(self.src_path)}" + (" — 🔒 محمي (سيُفعّل وضع فك الحماية)" if encrypted else ""))
+        name = os.path.basename(self.src_path)
+        if encrypted:
+            self.status_label.setText(
+                tr_fmt("📄 {name} — 🔒 محمي (سيُفعّل وضع فك الحماية)", name=name))
+        else:
+            self.status_label.setText(f"📄 {name}")
         self.run_btn.setEnabled(True)
 
     def _mode_changed(self):
@@ -135,7 +139,7 @@ class ProtectTab(QWidget):
                 return
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳ جارٍ التنفيذ…")
+        self.status_label.setText(tr_text("⏳ جارٍ التنفيذ…"))
         self.worker = Worker(self._do_work)
         self.worker.finished_ok.connect(self._on_done)
         self.worker.failed.connect(self._on_fail)
@@ -144,7 +148,7 @@ class ProtectTab(QWidget):
     def _do_work(self):
         stem = os.path.splitext(self.src_path)[0]
         if self.encrypt_rb.isChecked():
-            out = stem + "_محمي.pdf"
+            out = stem + tr_text("_محمي.pdf")
             protect(
                 self.src_path, out,
                 user_password=self.pw1.text(),
@@ -153,7 +157,7 @@ class ProtectTab(QWidget):
                 allow_modify=self.allow_modify.isChecked(),
             )
             return {"mode": "encrypt", "out": out}
-        out = stem + "_بدون_حماية.pdf"
+        out = stem + tr_text("_بدون_حماية.pdf")
         unprotect(self.src_path, out, self.pw1.text())
         return {"mode": "decrypt", "out": out}
 
@@ -161,8 +165,8 @@ class ProtectTab(QWidget):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        label = "حُمي" if result["mode"] == "encrypt" else "أُزيلت حمايته"
-        show_toast(self, f"✅ {label} الملف بنجاح", "info")
+        label = tr_text("حُمي") if result["mode"] == "encrypt" else tr_text("أُزيلت حمايته")
+        show_toast(self, tr_fmt("✅ {label} الملف بنجاح", label=label), "info")
         self.status_label.setText(f"✅ {label}: {result['out']}")
         record("حماية PDF", result["out"])
 
@@ -170,4 +174,4 @@ class ProtectTab(QWidget):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        self.status_label.setText(f"❌ {err}")
+        self.status_label.setText(f"❌ {tr_text(err)}")

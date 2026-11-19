@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 
 from ui.widgets import DropZone, FileListWidget, Worker, make_toolbar_button
 from ui.toast import show_toast
+from ui.i18n import tr_text, tr_fmt
 from core.convert import images_to_pdf, is_supported_image
 
 
@@ -77,7 +78,7 @@ class ConvertTab(QWidget):
         valid_paths = [p for p in paths if is_supported_image(p)]
         skipped = len(paths) - len(valid_paths)
         if skipped:
-            show_toast(self, f"تم تجاهل {skipped} ملف بصيغة غير مدعومة", "warning")
+            show_toast(self, tr_fmt("تم تجاهل {skipped} ملف بصيغة غير مدعومة", skipped=skipped), "warning")
         self.file_list.add_files(valid_paths)
 
     def _update_state(self):
@@ -90,14 +91,14 @@ class ConvertTab(QWidget):
             return
 
         output_path, _ = QFileDialog.getSaveFileName(
-            self, "حفظ ملف PDF", "صور_محولة.pdf", "PDF Files (*.pdf)"
+            self, tr_text("حفظ ملف PDF"), tr_text("صور_محولة.pdf"), "PDF Files (*.pdf)"
         )
         if not output_path:
             return
 
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("جاري التحويل...")
+        self.status_label.setText(tr_text("جاري التحويل..."))
 
         self.worker = Worker(images_to_pdf, paths, output_path)
         self.worker.finished_ok.connect(lambda res: self._on_success(output_path, len(paths)))
@@ -108,16 +109,18 @@ class ConvertTab(QWidget):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
         self.status_label.setObjectName("statusSuccess")
-        self.status_label.setText(f"✅ تم تحويل {count} صورة إلى PDF بنجاح\nحُفظ في: {output_path}")
+        self.status_label.setText(tr_fmt(
+            "✅ تم تحويل {count} صورة إلى PDF بنجاح\nحُفظ في: {output_path}",
+            count=count, output_path=output_path))
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
-        show_toast(self, f"تم تحويل {count} صورة إلى PDF", "success")
+        show_toast(self, tr_fmt("تم تحويل {count} صورة إلى PDF", count=count), "success")
 
     def _on_failure(self, error_msg):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
         self.status_label.setObjectName("statusError")
-        self.status_label.setText(f"❌ فشلت العملية: {error_msg}")
+        self.status_label.setText(tr_fmt("❌ فشلت العملية: {error_msg}", error_msg=error_msg))
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
         show_toast(self, error_msg, "error")

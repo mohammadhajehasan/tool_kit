@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 
 from ui.widgets import DropZone, Worker, CancellationToken
 from ui.toast import show_toast
+from ui.i18n import tr_text, tr_fmt
 from core.export import pdf_to_docx, pdf_to_excel
 
 
@@ -94,30 +95,30 @@ class ExportTab(QWidget):
         base = os.path.splitext(os.path.basename(self.selected_file))[0]
         if self.word_radio.isChecked():
             output, _ = QFileDialog.getSaveFileName(
-                self, "حفظ Word", f"{base}.docx", "Word (*.docx)"
+                self, tr_text("حفظ Word"), f"{base}.docx", "Word (*.docx)"
             )
             if not output:
                 return
             fn = pdf_to_docx
             args = (self.selected_file, output)
-            ok_msg = lambda res: f"✅ تم التصدير إلى Word\n{res}"
+            ok_msg = lambda res: tr_fmt("✅ تم التصدير إلى Word\n{res}", res=res)
         else:
             output, _ = QFileDialog.getSaveFileName(
-                self, "حفظ Excel", f"{base}.xlsx", "Excel (*.xlsx)"
+                self, tr_text("حفظ Excel"), f"{base}.xlsx", "Excel (*.xlsx)"
             )
             if not output:
                 return
             fn = pdf_to_excel
             args = (self.selected_file, output)
-            ok_msg = lambda res: (
-                f"✅ تم التصدير إلى Excel — {res.get('tables', 0)} جدول\n{res.get('output')}"
-            )
+            ok_msg = lambda res: tr_fmt(
+                "✅ تم التصدير إلى Excel — {tables} جدول\n{output}",
+                tables=res.get("tables", 0), output=res.get("output"))
 
         token = CancellationToken()
         self.run_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.progress.setVisible(True)
-        self.status_label.setText("جاري التصدير…")
+        self.status_label.setText(tr_text("جاري التصدير…"))
 
         self.worker = Worker(fn, *args, cancel_token=token)
         self.worker.finished_ok.connect(lambda res: self._done(True, ok_msg(res)))
@@ -129,7 +130,7 @@ class ExportTab(QWidget):
         self.run_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
         self.status_label.setObjectName("statusSuccess" if ok else "statusError")
-        self.status_label.setText(msg if ok else f"❌ {msg}")
+        self.status_label.setText(msg if ok else f"❌ {tr_text(msg)}")
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
-        show_toast(self, "تم التصدير" if ok else str(msg), "success" if ok else "error")
+        show_toast(self, tr_text("تم التصدير") if ok else tr_text(str(msg)), "success" if ok else "error")

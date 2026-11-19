@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.widgets import DropZone, FileListWidget, Worker, make_toolbar_button
+from ui.i18n import tr_text, tr_fmt
 from core.merge import merge_pdfs, MergeError
 
 
@@ -73,7 +74,8 @@ class MergeTab(QWidget):
         pdf_paths = [p for p in paths if p.lower().endswith(".pdf")]
         skipped = len(paths) - len(pdf_paths)
         if skipped:
-            QMessageBox.information(self, "تنبيه", f"تم تجاهل {skipped} ملف غير PDF")
+            QMessageBox.information(self, tr_text("تنبيه"),
+                                    tr_fmt("تم تجاهل {skipped} ملف غير PDF", skipped=skipped))
         self.file_list.add_files(pdf_paths)
 
     def _update_state(self):
@@ -87,14 +89,14 @@ class MergeTab(QWidget):
             return
 
         output_path, _ = QFileDialog.getSaveFileName(
-            self, "حفظ الملف المدموج", "ملف_مدموج.pdf", "PDF Files (*.pdf)"
+            self, tr_text("حفظ الملف المدموج"), tr_text("ملف_مدموج.pdf"), "PDF Files (*.pdf)"
         )
         if not output_path:
             return
 
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("جاري الدمج...")
+        self.status_label.setText(tr_text("جاري الدمج..."))
 
         self.worker = Worker(merge_pdfs, paths, output_path)
         self.worker.finished_ok.connect(lambda res: self._on_success(output_path, len(paths)))
@@ -105,7 +107,9 @@ class MergeTab(QWidget):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
         self.status_label.setObjectName("statusSuccess")
-        self.status_label.setText(f"✅ تم دمج {count} ملفات بنجاح\nحُفظ في: {output_path}")
+        self.status_label.setText(tr_fmt(
+            "✅ تم دمج {count} ملفات بنجاح\nحُفظ في: {output_path}",
+            count=count, output_path=output_path))
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)
 
@@ -113,6 +117,6 @@ class MergeTab(QWidget):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
         self.status_label.setObjectName("statusError")
-        self.status_label.setText(f"❌ فشلت العملية: {error_msg}")
+        self.status_label.setText(tr_fmt("❌ فشلت العملية: {error_msg}", error_msg=error_msg))
         self.style().unpolish(self.status_label)
         self.style().polish(self.status_label)

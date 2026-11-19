@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 
 from ui.widgets import DropZone, Worker
 from ui.toast import show_toast
-from ui.i18n import tr
+from ui.i18n import tr, tr_text, tr_fmt
 from core.repair import repair, RepairError
 from core.history import record
 from core.compress import format_size
@@ -77,8 +77,8 @@ class RepairTab(QWidget):
             return
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳ جارٍ الإصلاح…")
-        out = os.path.splitext(self.src_path)[0] + "_مصلح.pdf"
+        self.status_label.setText(tr_text("⏳ جارٍ الإصلاح…"))
+        out = os.path.splitext(self.src_path)[0] + tr_text("_مصلح.pdf")
         self.worker = Worker(repair, self.src_path, out)
         self.worker.finished_ok.connect(self._on_done)
         self.worker.failed.connect(self._on_fail)
@@ -88,13 +88,14 @@ class RepairTab(QWidget):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        show_toast(self, f"✅ أُصلح الملف عبر {result['engine']}", "info")
-        self.status_label.setText(
-            f"✅ محفوظ: {result['out']} ({format_size(result['size'])} — المحرك: {result['engine']})")
+        show_toast(self, tr_fmt("✅ أُصلح الملف عبر {engine}", engine=result['engine']), "info")
+        self.status_label.setText(tr_fmt(
+            "✅ محفوظ: {out} ({size} — المحرك: {engine})",
+            out=result['out'], size=format_size(result['size']), engine=result['engine']))
         record("إصلاح PDF", result["out"])
 
     def _on_fail(self, err):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        self.status_label.setText(f"❌ {err}")
+        self.status_label.setText(f"❌ {tr_text(err)}")

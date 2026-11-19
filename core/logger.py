@@ -57,28 +57,29 @@ def install_excepthook():
             from PySide6.QtGui import QDesktopServices
             from PySide6.QtCore import QUrl
             from version import APP_VERSION
+            from ui.i18n import tr_text, tr_fmt
 
             if QApplication.instance() is None:
                 return
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("PDF Toolbox — خطأ غير متوقع")
-            msg.setText("حدث خطأ غير متوقع وتم تسجيل التفاصيل في ملف السجل.")
-            msg.setInformativeText("يمكنك إبلاغ المطور مع تفاصيل الخطأ.")
-            open_log = msg.addButton("📂 فتح ملف السجل", QMessageBox.ActionRole)
-            report = msg.addButton("✉️ إبلاغ المطور", QMessageBox.ActionRole)
-            msg.addButton("إغلاق", QMessageBox.RejectRole)
+            msg.setWindowTitle(tr_text("PDF Toolbox — خطأ غير متوقع"))
+            msg.setText(tr_text("حدث خطأ غير متوقع وتم تسجيل التفاصيل في ملف السجل."))
+            msg.setInformativeText(tr_text("يمكنك إبلاغ المطور مع تفاصيل الخطأ."))
+            open_log = msg.addButton(tr_text("📂 فتح ملف السجل"), QMessageBox.ActionRole)
+            report = msg.addButton(tr_text("✉️ إبلاغ المطور"), QMessageBox.ActionRole)
+            msg.addButton(tr_text("إغلاق"), QMessageBox.RejectRole)
             msg.exec()
             clicked = msg.clickedButton()
             if clicked is open_log and os.path.isfile(LOG_PATH):
                 os.startfile(LOG_PATH)
             elif clicked is report:
-                subject = f"PDF Toolbox v{APP_VERSION} — مشكلة"
-                body = "السلام عليكم، واجهتني هذه المشكلة في التطبيق:\n\n(اشرح ما كنت تفعله)\n\n"
+                subject = tr_fmt("PDF Toolbox v{version} — مشكلة", version=APP_VERSION)
+                body = tr_text("السلام عليكم، واجهتني هذه المشكلة في التطبيق:\n\n(اشرح ما كنت تفعله)\n\n")
                 try:
                     with open(LOG_PATH, "r", encoding="utf-8", errors="replace") as f:
                         tail = f.read()[-1500:]
-                    body += "--- آخر السجل ---\n" + tail
+                    body += tr_text("--- آخر السجل ---\n") + tail
                 except Exception:
                     pass
                 from urllib.parse import quote

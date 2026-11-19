@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 
 from ui.widgets import DropZone, Worker
 from ui.toast import show_toast
-from ui.i18n import tr
+from ui.i18n import tr, tr_text, tr_fmt
 from core.pdf2img import pdf_to_images, Pdf2ImgError
 from core.history import record
 
@@ -119,7 +119,7 @@ class Pdf2ImgTab(QWidget):
             return
         self.run_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳ جارٍ التحويل…")
+        self.status_label.setText(tr_text("⏳ جارٍ التحويل…"))
         self.worker = Worker(self._do_convert)
         self.worker.finished_ok.connect(self._on_done)
         self.worker.failed.connect(self._on_fail)
@@ -132,7 +132,7 @@ class Pdf2ImgTab(QWidget):
         doc.close()
         pages = self._parse_pages(total)
         fmt = self.fmt_combo.currentText().lower()
-        out_dir = os.path.splitext(self.src_path)[0] + "_صور"
+        out_dir = os.path.splitext(self.src_path)[0] + tr_text("_صور")
         return pdf_to_images(
             self.src_path, out_dir, fmt=fmt,
             dpi=self.dpi_combo.currentData(),
@@ -145,8 +145,8 @@ class Pdf2ImgTab(QWidget):
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
         self.out_dir = os.path.dirname(files[0]) if files else None
-        show_toast(self, f"✅ تم تحويل {len(files)} صفحة إلى صور", "info")
-        self.status_label.setText(f"✅ {len(files)} صورة في: {self.out_dir}")
+        show_toast(self, tr_fmt("✅ تم تحويل {n} صفحة إلى صور", n=len(files)), "info")
+        self.status_label.setText(tr_fmt("✅ {n} صورة في: {dir}", n=len(files), dir=self.out_dir))
         self.open_btn.setVisible(True)
         record("PDF إلى صور", self.out_dir or self.src_path)
 
@@ -154,7 +154,7 @@ class Pdf2ImgTab(QWidget):
         self.worker = None
         self.progress.setVisible(False)
         self.run_btn.setEnabled(True)
-        self.status_label.setText(f"❌ {err}")
+        self.status_label.setText(f"❌ {tr_text(err)}")
 
     def _open_folder(self):
         if self.out_dir and os.path.isdir(self.out_dir):

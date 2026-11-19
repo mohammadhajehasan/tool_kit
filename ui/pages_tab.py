@@ -10,7 +10,7 @@ from PySide6.QtGui import QIcon, QPixmap, QTransform
 
 from ui.widgets import DropZone, Worker
 from ui.toast import show_toast
-from ui.i18n import tr
+from ui.i18n import tr, tr_text, tr_fmt
 from core.pages import organize, rotate_value, PagesError
 from core.split import render_page_thumbnails
 from core.history import record
@@ -103,7 +103,7 @@ class PagesTab(QWidget):
         self.src_path = paths[0]
         self.drop_zone.setVisible(False)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳ جارٍ توليد المعاينات…")
+        self.status_label.setText(tr_text("⏳ جارٍ توليد المعاينات…"))
         self.worker = Worker(self._load_thumbs)
         self.worker.finished_ok.connect(self._on_loaded)
         self.worker.failed.connect(self._on_fail)
@@ -125,7 +125,9 @@ class PagesTab(QWidget):
             self._add_item(idx)
         self._update_count()
         self.save_btn.setEnabled(True)
-        self.status_label.setText(f"✅ {self.total_pages} صفحة — اسحب لإعادة الترتيب، حدد صفحة للتدوير/الحذف")
+        self.status_label.setText(tr_fmt(
+            "✅ {total} صفحة — اسحب لإعادة الترتيب، حدد صفحة للتدوير/الحذف",
+            total=self.total_pages))
 
     def _to_pixmap(self, img) -> QPixmap:
         if img is None:
@@ -145,10 +147,12 @@ class PagesTab(QWidget):
             icon = QIcon(shown)
         else:
             icon = QIcon()
-        item = QListWidgetItem(icon, f"صفحة {idx + 1}")
+        item = QListWidgetItem(icon, tr_fmt("صفحة {n}", n=idx + 1))
         item.setData(Qt.UserRole, idx)
         item.setSizeHint(QSize(116, 152))
-        item.setToolTip(f"الصفحة الأصلية رقم {idx + 1}" + (f" (مدورة {deg}°)" if deg else ""))
+        item.setToolTip(
+            tr_fmt("الصفحة الأصلية رقم {n}", n=idx + 1)
+            + (tr_fmt(" (مدورة {deg}°)", deg=deg) if deg else ""))
         self.grid.addItem(item)
 
     # ---------- عمليات ----------
@@ -168,7 +172,7 @@ class PagesTab(QWidget):
             if pix:
                 shown = pix.transformed(QTransform().rotate(deg), Qt.SmoothTransformation)
                 item.setIcon(QIcon(shown))
-            item.setToolTip(f"الصفحة الأصلية رقم {idx + 1} (مدورة {deg}°)")
+            item.setToolTip(tr_fmt("الصفحة الأصلية رقم {n} (مدورة {deg}°)", n=idx + 1, deg=deg))
 
     def _delete_selected(self):
         items = self.grid.selectedItems()
@@ -191,7 +195,9 @@ class PagesTab(QWidget):
         self._update_count()
 
     def _update_count(self):
-        self.count_label.setText(f"📄 {self.grid.count()} من {self.total_pages} صفحة")
+        self.count_label.setText(tr_fmt(
+            "📄 {count} من {total} صفحة",
+            count=self.grid.count(), total=self.total_pages))
 
     def _save(self):
         order = []
@@ -201,14 +207,14 @@ class PagesTab(QWidget):
             show_toast(self, "لا توجد صفحات للحفظ", "warning")
             return
 
-        default = os.path.splitext(self.src_path)[0] + "_معدل.pdf"
+        default = os.path.splitext(self.src_path)[0] + tr_text("_معدل.pdf")
         out, _ = QFileDialog.getSaveFileName(
-            self, "حفظ الملف الجديد", default, "PDF (*.pdf)")
+            self, tr_text("حفظ الملف الجديد"), default, "PDF (*.pdf)")
         if not out:
             return
         self.save_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.status_label.setText("⏳ جارٍ الحفظ…")
+        self.status_label.setText(tr_text("⏳ جارٍ الحفظ…"))
         self.worker = Worker(organize, self.src_path, out, order, dict(self.rotations))
         result_holder = {"out": out}
         self.worker.finished_ok.connect(lambda _: self._on_saved(result_holder["out"]))
@@ -219,15 +225,15 @@ class PagesTab(QWidget):
         self.worker = None
         self.progress.setVisible(False)
         self.save_btn.setEnabled(True)
-        show_toast(self, "✅ تم حفظ الملف بنجاح", "info")
-        self.status_label.setText(f"✅ محفوظ: {out}")
+        show_toast(self, tr_text("✅ تم حفظ الملف بنجاح"), "info")
+        self.status_label.setText(tr_fmt("✅ محفوظ: {out}", out=out))
         record("محرر الصفحات", out)
 
     def _on_fail(self, err):
         self.worker = None
         self.progress.setVisible(False)
         self.save_btn.setEnabled(True)
-        self.status_label.setText(f"❌ {err}")
+        self.status_label.setText(f"❌ {tr_text(err)}")
 
 
 def QImage_helper(data, width, height):

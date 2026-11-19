@@ -7,6 +7,8 @@ from PySide6.QtWidgets import (
 
 from ui.widgets import DropZone, Worker, CancellationToken
 from ui.toast import show_toast
+from ui import i18n
+from ui.i18n import tr_text, tr_fmt
 from core.ai_assistant import (
     ask_about_document, summarize_document,
     ollama_available, list_ollama_models,
@@ -139,18 +141,20 @@ class AiTab(QWidget):
         if self.ollama_radio.isChecked():
             if ollama_available():
                 models = list_ollama_models()
-                self.status_engine.setText(
-                    "Ollama متصل محلياً" + (f" — نماذج: {', '.join(models[:6])}" if models else "")
-                )
+                text = tr_text("Ollama متصل محلياً")
+                if models:
+                    text += tr_fmt(" — نماذج: {models}", models=", ".join(models[:6]))
+                self.status_engine.setText(text)
                 if models:
                     self.model.clear()
                     self.model.addItems(models)
             else:
                 self.status_engine.setText(
-                    "Ollama غير متصل. ثبّته من ollama.com ثم: ollama run llama3.2"
+                    tr_text("Ollama غير متصل. ثبّته من ollama.com ثم: ollama run llama3.2")
                 )
         else:
-            self.status_engine.setText("وضع API: يُرسل النص إلى مزود متوافق مع OpenAI (اختياري)")
+            self.status_engine.setText(
+                tr_text("وضع API: يُرسل النص إلى مزود متوافق مع OpenAI (اختياري)"))
 
     def _on_file(self, paths):
         if not paths or not paths[0].lower().endswith(".pdf"):
@@ -174,6 +178,7 @@ class AiTab(QWidget):
             mode=mode,
             model=self.model.currentText().strip() or "llama3.2",
             api_key=key,
+            lang=i18n.lang(),
         )
 
     def _start(self, fn, *args):
@@ -182,7 +187,7 @@ class AiTab(QWidget):
         self.summarize_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.progress.setVisible(True)
-        self.answer.setPlainText("جاري التفكير…")
+        self.answer.setPlainText(tr_text("جاري التفكير…"))
         self.worker = Worker(fn, *args, cancel_token=token, **self._mode_kwargs())
         self.worker.finished_ok.connect(self._ok)
         self.worker.failed.connect(self._fail)
@@ -207,13 +212,13 @@ class AiTab(QWidget):
         self.ask_btn.setEnabled(True)
         self.summarize_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
-        self.answer.setPlainText(text or "(لا توجد إجابة)")
-        show_toast(self, "تمت الإجابة", "success")
+        self.answer.setPlainText(text or tr_text("(لا توجد إجابة)"))
+        show_toast(self, tr_text("تمت الإجابة"), "success")
 
     def _fail(self, err):
         self.progress.setVisible(False)
         self.ask_btn.setEnabled(True)
         self.summarize_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
-        self.answer.setPlainText(f"خطأ: {err}")
+        self.answer.setPlainText(tr_fmt("خطأ: {err}", err=tr_text(str(err))))
         show_toast(self, str(err), "error")
