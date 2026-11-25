@@ -5,7 +5,7 @@
 ![Build](https://github.com/mohammadhajehasan/tool_kit/actions/workflows/build.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![PySide6](https://img.shields.io/badge/PySide6-6.11-green)
-![Release](https://img.shields.io/badge/Release-v2.1.2-8B5CF6)
+![Release](https://img.shields.io/badge/Release-v2.1.3-8B5CF6)
 ![License](https://img.shields.io/badge/License-AGPLv3-blueviolet)
 
 ## 🖼️ لقطات الشاشة
@@ -50,6 +50,10 @@
 | ⚖️ **مقارنة PDF** | فروقات نصية ملوّنة بين نسختين |
 | 🤖 **مساعد ذكي** | تلخيص وأسئلة محلياً عبر Ollama أو API اختياري + استخراج تلقائي للمستندات الممسوحة عبر Unlimited-OCR |
 | 📦 **فك ضغط الأرشيفات** | ZIP/TAR/7z/RAR مع حماية Zip-Slip وإصلاح أسماء الملفات العربية المشوهة |
+
+## 🆕 ما الجديد في v2.1.3
+
+- **🩹 إصلاح تضمين Ghostscript في بناء CI** — قاعدة `*.exe filter=lfs` كانت تحوّل `gswin64c.exe` إلى مؤشر LFS نصي في المستودع، فكان الـexe المبني على CI يفشل بخطأ `WinError 216`. استُثنيت ملفات `resources/gs/**` من LFS وأُعيد تخزينها كملفات حقيقية. Ghostscript يعمل الآن في كل من البناء المحلي وبناء CI.
 
 ## 🆕 ما الجديد في v2.1.2
 
@@ -215,7 +219,7 @@ python -m PyInstaller PDF_Toolbox.spec --noconfirm --clean
 
 # أو مثبّت ويندوز (يتطلب Inno Setup 6)
 ISCC.exe installer\PDF_Toolbox.iss
-# الناتج: dist/installer/PDF_Toolbox_Setup_v2.1.2.exe
+# الناتج: dist/installer/PDF_Toolbox_Setup_v2.1.3.exe
 ```
 
 ## 🏗️ البنية

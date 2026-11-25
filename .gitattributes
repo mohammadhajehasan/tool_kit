@@ -1,2 +1,4 @@
 *.exe filter=lfs diff=lfs merge=lfs -text
 dist/PDF_Toolbox.exe filter=lfs diff=lfs merge=lfs -text
+# Ghostscript files must be stored as real blobs, not LFS pointers
+resources/gs/** -filter -diff -merge -text
