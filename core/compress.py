@@ -47,6 +47,10 @@ def find_ghostscript() -> str:
         base_dir / "resources" / "gs" / "gswin64c.exe",
         base_dir / "resources" / "gs" / "gswin32c.exe",
         base_dir / "resources" / "gs" / "gs",
+        # تخطيط تثبيت Ghostscript الرسمي: bin/ بجوار Resource/ و lib/
+        base_dir / "resources" / "gs" / "bin" / "gswin64c.exe",
+        base_dir / "resources" / "gs" / "bin" / "gswin32c.exe",
+        base_dir / "resources" / "gs" / "bin" / "gs",
     ]
     for candidate in bundled_candidates:
         if candidate.exists():

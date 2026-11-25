@@ -5,8 +5,8 @@
 ![Build](https://github.com/mohammadhajehasan/tool_kit/actions/workflows/build.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![PySide6](https://img.shields.io/badge/PySide6-6.11-green)
-![Release](https://img.shields.io/badge/Release-v2.1.1-8B5CF6)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![Release](https://img.shields.io/badge/Release-v2.1.2-8B5CF6)
+![License](https://img.shields.io/badge/License-AGPLv3-blueviolet)
 
 ## 🖼️ لقطات الشاشة
 
@@ -50,6 +50,11 @@
 | ⚖️ **مقارنة PDF** | فروقات نصية ملوّنة بين نسختين |
 | 🤖 **مساعد ذكي** | تلخيص وأسئلة محلياً عبر Ollama أو API اختياري + استخراج تلقائي للمستندات الممسوحة عبر Unlimited-OCR |
 | 📦 **فك ضغط الأرشيفات** | ZIP/TAR/7z/RAR مع حماية Zip-Slip وإصلاح أسماء الملفات العربية المشوهة |
+
+## 🆕 ما الجديد في v2.1.2
+
+- **🗜️ Ghostscript مضمّن في التطبيق** — لم يعد المستخدم بحاجة لتثبيت Ghostscript؛ النسخة الرسمية 10.08.0 (64-bit) مضمّنة داخل الـexe، فيصبح خيار «استخدام Ghostscript لضغط أقوى» مفعّلاً دائماً ويعمل بدون إنترنت.
+- **📄 إشعار ترخيص AGPL** — نسخة Ghostscript موزّعة تحت **GNU AGPLv3**، ونُصَحت نسخة الترخيص الكاملة في `resources/gs/COPYING`. باستخدامك لهذا الإصدار فإنك توافق على ترخيص التطبيق كاملاً بموجب AGPLv3 (راجع قسم الترخيص أدناه).
 
 ## 🆕 ما الجديد في v2.1.1
 
@@ -210,7 +215,7 @@ python -m PyInstaller PDF_Toolbox.spec --noconfirm --clean
 
 # أو مثبّت ويندوز (يتطلب Inno Setup 6)
 ISCC.exe installer\PDF_Toolbox.iss
-# الناتج: dist/installer/PDF_Toolbox_Setup_v2.1.1.exe
+# الناتج: dist/installer/PDF_Toolbox_Setup_v2.1.2.exe
 ```
 
 ## 🏗️ البنية
@@ -271,4 +276,8 @@ pdf_toolbox/
 
 ## 📄 الترخيص
 
-MIT License
+كود PDF Toolbox الأصلي مرخّص بـ **MIT**، لكن الإصدارات من **v2.1.2** وما بعدها تُوزّع مع **Ghostscript 10.08.0** المضمّن تحت **GNU AGPLv3**. وفقاً لشروط AGPL، يُوزَّغ **الإصدار المجمّع كاملاً** بموجب **AGPLv3**، وتوجد نسخة الترخيص الكاملة في `resources/gs/COPYING` وداخل الـexe.
+
+- المصدر: https://github.com/ArtifexSoftware/ghostpdl-downloads
+- الترخيص: https://www.gnu.org/licenses/agpl-3.0.html
+- إذا أردت البقاء تحت MIT، استخدم إصداراً قبل v2.1.2 أو احذف `resources/gs/` وأعد البناء (سيُعطَّل خيار Ghostscript ويبقى PyMuPDF).

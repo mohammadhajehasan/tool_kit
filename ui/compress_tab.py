@@ -202,14 +202,14 @@ class CompressTab(QWidget):
         self.gs_available = ghostscript_available()
         if self.gs_available:
             self.gs_check.setToolTip(
-                "يستخدم محرك Ghostscript للضغط، مع تحقق تلقائي من سلامة الملف قبل الحفظ"
+                "يستخدم محرك Ghostscript المضمّن في التطبيق للضغط الأقوى، "
+                "مع تحقق تلقائي من سلامة الملف قبل الحفظ"
             )
         else:
             self.gs_check.setEnabled(False)
             self.gs_check.setToolTip(
-                "Ghostscript غير مثبّت على هذا الجهاز.\n"
-                "سيتم استخدام PyMuPDF للضغط (فعّال أيضاً).\n"
-                "لتفعيله: ثبّت Ghostscript أو ضع gswin64c.exe في resources/gs/"
+                "Ghostscript غير متاح على هذا الجهاز.\n"
+                "سيتم استخدام PyMuPDF للضغط (فعّال أيضاً)."
             )
         layout.addWidget(self.gs_check)
 

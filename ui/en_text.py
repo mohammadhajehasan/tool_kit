@@ -111,6 +111,8 @@ EN_TEXT = {
         "Use Ghostscript for stronger compression (optional)",
     "يستخدم محرك Ghostscript للضغط، مع تحقق تلقائي من سلامة الملف قبل الحفظ":
         "Uses the Ghostscript engine with automatic file integrity checks before saving",
+    "يستخدم محرك Ghostscript المضمّن في التطبيق للضغط الأقوى، مع تحقق تلقائي من سلامة الملف قبل الحفظ":
+        "Uses the bundled Ghostscript engine for stronger compression, with automatic file integrity checks before saving",
     "Ghostscript غير مثبّت على هذا الجهاز.\n"
     "سيتم استخدام PyMuPDF للضغط (فعّال أيضاً).\n"
     "لتفعيله: ثبّت Ghostscript أو ضع gswin64c.exe في resources/gs/":

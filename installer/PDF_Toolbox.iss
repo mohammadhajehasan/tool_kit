@@ -5,7 +5,7 @@
 
 #define MyAppName "PDF Toolbox"
 #define MyAppNameAr "أداة PDF"
-#define MyAppVersion "2.1.1"
+#define MyAppVersion "2.1.2"
 #define MyAppPublisher "Ahmad Al-Farhat"
 #define MyAppURL "https://github.com/mohammadhajehasan/tool_kit"
 #define MyAppExeName "PDF_Toolbox.exe"
