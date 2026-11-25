@@ -107,6 +107,9 @@ EN_TEXT = {
     "الضغط الشديد": "Extreme compression",
     "أقصى تقليص ممكن للحجم، قد يؤثر على جودة الصور والخطوط":
         "Maximum size reduction; may affect image and font quality",
+    "الضغط الأقصى (Ultra)": "Ultra compression",
+    "يُجبر تقليل دقة الصور إلى 50 DPI — أصغر حجم ممكن مع تأثير واضح على الجودة":
+        "Forces image downsampling to 50 DPI — smallest size with a visible quality trade-off",
     "استخدام Ghostscript لضغط أقوى (اختياري)":
         "Use Ghostscript for stronger compression (optional)",
     "يستخدم محرك Ghostscript للضغط، مع تحقق تلقائي من سلامة الملف قبل الحفظ":

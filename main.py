@@ -39,7 +39,7 @@ def run_cli(argv: list[str]) -> int:
     c = sub.add_parser("compress", help="ضغط ملف PDF")
     c.add_argument("input")
     c.add_argument("-o", "--out", default=None)
-    c.add_argument("--level", choices=["light", "recommended", "extreme"], default="recommended")
+    c.add_argument("--level", choices=["light", "recommended", "extreme", "ultra"], default="recommended")
     c.add_argument("--gs", action="store_true", help="استخدم Ghostscript إن توفر")
 
     m = sub.add_parser("merge", help="دمج عدة ملفات")

@@ -193,9 +193,16 @@ class CompressTab(QWidget):
             "extreme",
             self.button_group,
         )
+        self.ultra_card = OptionCard(
+            "الضغط الأقصى (Ultra)",
+            "يُجبر تقليل دقة الصور إلى 50 DPI — أصغر حجم ممكن مع تأثير واضح على الجودة",
+            "ultra",
+            self.button_group,
+        )
         options_layout.addWidget(self.light_card)
         options_layout.addWidget(self.recommended_card)
         options_layout.addWidget(self.extreme_card)
+        options_layout.addWidget(self.ultra_card)
         layout.addLayout(options_layout)
 
         self.gs_check = QCheckBox("استخدام Ghostscript لضغط أقوى (اختياري)")
@@ -269,7 +276,7 @@ class CompressTab(QWidget):
             self.worker.cancel()
 
     def _selected_level(self) -> str:
-        for card in (self.light_card, self.recommended_card, self.extreme_card):
+        for card in (self.light_card, self.recommended_card, self.extreme_card, self.ultra_card):
             if card.radio.isChecked():
                 return card.value
         return "recommended"

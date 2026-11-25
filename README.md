@@ -5,7 +5,7 @@
 ![Build](https://github.com/mohammadhajehasan/tool_kit/actions/workflows/build.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![PySide6](https://img.shields.io/badge/PySide6-6.11-green)
-![Release](https://img.shields.io/badge/Release-v2.1.3-8B5CF6)
+![Release](https://img.shields.io/badge/Release-v2.1.4-8B5CF6)
 ![License](https://img.shields.io/badge/License-AGPLv3-blueviolet)
 
 ## 🖼️ لقطات الشاشة
@@ -50,6 +50,11 @@
 | ⚖️ **مقارنة PDF** | فروقات نصية ملوّنة بين نسختين |
 | 🤖 **مساعد ذكي** | تلخيص وأسئلة محلياً عبر Ollama أو API اختياري + استخراج تلقائي للمستندات الممسوحة عبر Unlimited-OCR |
 | 📦 **فك ضغط الأرشيفات** | ZIP/TAR/7z/RAR مع حماية Zip-Slip وإصلاح أسماء الملفات العربية المشوهة |
+
+## 🆕 ما الجديد في v2.1.4
+
+- **🗜️ مستوى ضغط Ultra جديد** — خيار رابع في تبويب الضغط و `--level ultra` في CLI. يُجبر تقليل دقة الصور إلى **50 DPI** (عتبة منخفضة + جودة JPEG 35) بدل انتظار تجاوز العتبة، ما يضغط الصور المحوّلة 1:1 التي كانت تُتخطى سابقاً.
+- **شراكة Ghostscript** — مع Ultra يستخدم Ghostscript `/screen` مع `-dColorImageDownsampleThreshold=1.0`؛ في ملف اختبار (13.11MB، 4 صفحات صور) أعطى **67.7%** تقليص مقابل 48.8% مع PyMuPDF و38.6% مع المستوى الشديد، و0% مع بقية المستويات.
 
 ## 🆕 ما الجديد في v2.1.3
 
@@ -111,6 +116,7 @@
 ```bash
 # ضغط (مستويات: light / recommended / extreme)
 python main.py compress input.pdf -o out.pdf --level recommended
+python main.py compress input.pdf -o out.pdf --level ultra --gs   # أقصى تقليص
 
 # دمج عدة ملفات
 python main.py merge a.pdf b.pdf c.pdf -o merged.pdf
@@ -219,7 +225,7 @@ python -m PyInstaller PDF_Toolbox.spec --noconfirm --clean
 
 # أو مثبّت ويندوز (يتطلب Inno Setup 6)
 ISCC.exe installer\PDF_Toolbox.iss
-# الناتج: dist/installer/PDF_Toolbox_Setup_v2.1.3.exe
+# الناتج: dist/installer/PDF_Toolbox_Setup_v2.1.4.exe
 ```
 
 ## 🏗️ البنية

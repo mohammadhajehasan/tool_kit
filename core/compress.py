@@ -34,6 +34,8 @@ IMAGE_SETTINGS = {
     "light":      {"quality": 88, "dpi_target": 200, "dpi_threshold": 300},
     "recommended": {"quality": 75, "dpi_target": 120, "dpi_threshold": 150},
     "extreme":     {"quality": 55, "dpi_target": 72, "dpi_threshold": 100},
+    # أقصى ضغط: يُجبر تقليل الدقة حتى للصور منخفضة DPI (مثل الصور المحولة 1:1)
+    "ultra":       {"quality": 35, "dpi_target": 50, "dpi_threshold": 60},
 }
 
 
@@ -178,7 +180,16 @@ def _compress_with_ghostscript(input_path: str, output_path: str, level: str,
         "-dDownsampleMonoImages=true",
     ]
 
-    if level == "extreme":
+    if level == "ultra":
+        cmd += [
+            "-dColorImageResolution=50",
+            "-dGrayImageResolution=50",
+            "-dMonoImageResolution=300",
+            # أجبر الـdownsample حتى لو كانت DPI الأصلية أقل من الهدف
+            "-dColorImageDownsampleThreshold=1.0",
+            "-dGrayImageDownsampleThreshold=1.0",
+        ]
+    elif level == "extreme":
         cmd += [
             "-dColorImageResolution=100",
             "-dGrayImageResolution=100",
