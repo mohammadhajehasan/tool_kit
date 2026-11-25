@@ -161,12 +161,14 @@ class Worker(QThread):
 
     def run(self):
         try:
-            # مرّر cancel_check تلقائياَ إن قبلت الدالة المعامل
+            # مرّر cancel_check و progress تلقائياً إن قبلتهما الدالة
             import inspect
             try:
                 sig = inspect.signature(self.fn)
                 if "cancel_check" in sig.parameters and "cancel_check" not in self.kwargs:
                     self.kwargs["cancel_check"] = self.cancel_token.cancelled
+                if "progress" in sig.parameters and "progress" not in self.kwargs:
+                    self.kwargs["progress"] = self.progress.emit
             except (TypeError, ValueError):
                 pass
             result = self.fn(*self.args, **self.kwargs)

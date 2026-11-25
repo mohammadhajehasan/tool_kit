@@ -3,6 +3,7 @@ import json
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
     QTextEdit, QProgressBar, QRadioButton, QButtonGroup, QComboBox,
+    QCheckBox,
 )
 
 from ui.widgets import DropZone, Worker, CancellationToken
@@ -13,6 +14,7 @@ from core.ai_assistant import (
     ask_about_document, summarize_document,
     ollama_available, list_ollama_models,
 )
+from core import unlimited_ocr as U
 
 
 class AiTab(QWidget):
@@ -24,25 +26,20 @@ class AiTab(QWidget):
         self._refresh_ollama()
 
     def _settings_path(self):
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "settings.json")
+        from core import app_settings
+        return app_settings.SETTINGS_PATH
 
     def _load_api_key(self) -> str:
         try:
-            with open(self._settings_path(), "r", encoding="utf-8") as f:
-                return json.load(f).get("ai_api_key", "")
+            from core import app_settings
+            return app_settings.load().get("ai_api_key", "")
         except Exception:
             return ""
 
     def _save_api_key(self, key: str):
         try:
-            path = self._settings_path()
-            data = {}
-            if os.path.exists(path):
-                with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-            data["ai_api_key"] = key
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+            from core import app_settings
+            app_settings.save({"ai_api_key": key})
         except Exception:
             pass
 
@@ -87,6 +84,17 @@ class AiTab(QWidget):
         self.status_engine.setObjectName("hintLabel")
         self.status_engine.setWordWrap(True)
         layout.addWidget(self.status_engine)
+
+        self.ocr_check = QCheckBox("استخدم Unlimited-OCR للمستندات الممسوحة تلقائياً")
+        self.ocr_check.setToolTip("يتطلب ضبط خادم Unlimited-OCR في تبويب OCR")
+        self.ocr_check.setChecked(bool(U.load_config().get("unlimited_ocr_ai_ocr", True)))
+        self.ocr_check.toggled.connect(self._save_ocr_pref)
+        layout.addWidget(self.ocr_check)
+
+        self.ocr_hint = QLabel("")
+        self.ocr_hint.setObjectName("hintLabel")
+        self.ocr_hint.setWordWrap(True)
+        layout.addWidget(self.ocr_hint)
 
         model_row = QHBoxLayout()
         model_row.addWidget(QLabel("النموذج:"))
@@ -138,6 +146,7 @@ class AiTab(QWidget):
         self.ollama_radio.toggled.connect(self._refresh_ollama)
 
     def _refresh_ollama(self):
+        self._refresh_ocr_hint()
         if self.ollama_radio.isChecked():
             if ollama_available():
                 models = list_ollama_models()
@@ -169,6 +178,23 @@ class AiTab(QWidget):
         if self.worker:
             self.worker.cancel()
 
+    def _save_ocr_pref(self, checked: bool):
+        try:
+            U.save_config({"unlimited_ocr_ai_ocr": bool(checked)})
+        except Exception:
+            pass
+        self._refresh_ocr_hint()
+
+    def _refresh_ocr_hint(self):
+        if not hasattr(self, "ocr_hint"):
+            return
+        cfg = U.load_config()
+        if self.ocr_check.isChecked() and not U.is_configured(cfg):
+            self.ocr_hint.setText(tr_text(
+                "⚠️ اضبط خادم Unlimited-OCR في تبويب OCR أولاً"))
+        else:
+            self.ocr_hint.setText("")
+
     def _mode_kwargs(self):
         mode = "api" if self.api_radio.isChecked() else "ollama"
         key = self.api_key.text().strip()
@@ -179,6 +205,8 @@ class AiTab(QWidget):
             model=self.model.currentText().strip() or "llama3.2",
             api_key=key,
             lang=i18n.lang(),
+            ocr_fallback=self.ocr_check.isChecked(),
+            ocr_config=U.load_config(),
         )
 
     def _start(self, fn, *args):
@@ -189,9 +217,13 @@ class AiTab(QWidget):
         self.progress.setVisible(True)
         self.answer.setPlainText(tr_text("جاري التفكير…"))
         self.worker = Worker(fn, *args, cancel_token=token, **self._mode_kwargs())
+        self.worker.progress.connect(self._on_progress)
         self.worker.finished_ok.connect(self._ok)
         self.worker.failed.connect(self._fail)
         self.worker.start()
+
+    def _on_progress(self, message: str):
+        self.answer.setPlainText(tr_text(str(message)))
 
     def _ask(self):
         if not self.selected_file:

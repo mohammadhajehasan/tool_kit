@@ -17,8 +17,8 @@ setup_logging()
 
 SETTINGS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 try:
-    with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
-        SETTINGS = json.load(f)
+    from core.app_settings import load as _load_settings
+    SETTINGS = _load_settings() or {"theme": "auto"}
 except Exception:
     SETTINGS = {"theme": "auto"}
 
@@ -90,6 +90,16 @@ def run_cli(argv: list[str]) -> int:
     rp = sub.add_parser("repair", help="إصلاح ملف تالف")
     rp.add_argument("input")
     rp.add_argument("-o", "--out", default=None)
+
+    oc = sub.add_parser("ocr", help="التعرف الضوئي ← PDF قابل للبحث")
+    oc.add_argument("input")
+    oc.add_argument("-o", "--out", default=None)
+    oc.add_argument("--engine", choices=["tesseract", "unlimited"], default="tesseract")
+    oc.add_argument("--lang", default="ara+eng", help="لغة Tesseract مثل ara+eng")
+    oc.add_argument("--dpi", type=int, default=None)
+    oc.add_argument("--url", default=None, help="عنوان خادم Unlimited-OCR")
+    oc.add_argument("--model", default=None, help="اسم نموذج Unlimited-OCR")
+    oc.add_argument("--api-key", default=None, help="مفتاح API للخادم (اختياري)")
 
     args = p.parse_args(argv)
 
@@ -196,6 +206,32 @@ def run_cli(argv: list[str]) -> int:
         r = repair(args.input, out)
         print(f"OK engine={r['engine']} size={r['size']}")
         print(f"OUT {os.path.abspath(r['out'])}")
+
+    elif args.cmd == "ocr":
+        out = args.out or out_default(args.input, "_OCR.pdf")
+        if args.engine == "unlimited":
+            from core import unlimited_ocr as U
+            cfg = U.load_config()
+            if args.url:
+                cfg["unlimited_ocr_url"] = args.url
+            if args.model:
+                cfg["unlimited_ocr_model"] = args.model
+            if args.api_key is not None:
+                cfg["unlimited_ocr_api_key"] = args.api_key
+            dpi = int(args.dpi or cfg.get("unlimited_ocr_dpi") or 200)
+            txt = out_default(args.input, "_OCR.txt")
+            r = U.ocr_pdf(args.input, out, txt, cfg=cfg, dpi=dpi,
+                          progress=lambda m: print(m, flush=True))
+            print(f"OK pages={r['pages']} chars={r['chars']} pdf={r['pdf_written']}")
+            for warning in r.get("warnings") or []:
+                print(f"WARN {warning}")
+            print(f"OUT {os.path.abspath(r['out_pdf'] or r['out_txt'])}")
+        else:
+            from core.ocr import ocr_pdf as tesseract_ocr
+            r = tesseract_ocr(args.input, out, lang=args.lang,
+                              dpi=int(args.dpi or 200))
+            print(f"OK pages={r['pages']} lang={r['lang']}")
+            print(f"OUT {os.path.abspath(r['out'])}")
 
     return 0
 

@@ -7,14 +7,15 @@
 import json
 import os
 
+from core import app_settings
+
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SETTINGS_PATH = os.path.join(_BASE, "settings.json")
+SETTINGS_PATH = app_settings.SETTINGS_PATH
 
 
 def _detect_lang() -> str:
     try:
-        with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
-            lang = json.load(f).get("language", "ar")
+        lang = app_settings.load().get("language", "ar")
         return lang if lang in ("ar", "en") else "ar"
     except Exception:
         return "ar"
@@ -174,13 +175,7 @@ def set_lang(value: str):
     global _LANG
     _LANG = value if value in ("ar", "en") else "ar"
     try:
-        data = {}
-        if os.path.exists(SETTINGS_PATH):
-            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        data["language"] = _LANG
-        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        app_settings.save({"language": _LANG})
     except Exception:
         pass
 

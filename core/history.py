@@ -1,25 +1,20 @@
 """سجل النشاط والإحصائيات — يُخزَّن في settings.json بجانب التطبيق."""
 
 import datetime
-import json
-import os
 
-_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SETTINGS_PATH = os.path.join(_BASE, "settings.json")
+from core import app_settings
 
 
 def _load() -> dict:
     try:
-        with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+        return app_settings.load()
     except Exception:
         return {}
 
 
 def _save(data: dict):
     try:
-        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        app_settings.save(data)
     except Exception:
         pass  # التسجيل اختياري — لا نعطل العملية بسبب فشل الحفظ
 

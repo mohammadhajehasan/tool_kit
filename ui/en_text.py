@@ -303,6 +303,38 @@ EN_TEXT = {
     "✅ أصبح الملف قابلاً للبحث ({pages} صفحة)":
         "✅ The file is now searchable ({pages} pages)",
     "✅ محفوظ: {out}": "✅ Saved: {out}",
+    # Unlimited-OCR (خادم بعيد)
+    "المحرك:": "Engine:",
+    "Tesseract (محلي)": "Tesseract (local)",
+    "Unlimited-OCR (خادم)": "Unlimited-OCR (server)",
+    "عنوان الخادم:": "Server URL:",
+    "اسم النموذج:": "Model name:",
+    "مفتاح API (اختياري)": "API key (optional)",
+    "اتركه فارغاً إن لم يكن الخادم يتطلب مفتاحاً":
+        "Leave empty if the server does not require a key",
+    "فحص الاتصال": "Test connection",
+    "⏳ جارٍ فحص الاتصال…": "⏳ Testing connection…",
+    "✅ الخادم متصل": "✅ Server connected",
+    "✅ الخادم متصل — النماذج: {models}": "✅ Server connected — models: {models}",
+    "تم الاتصال بالخادم": "Connected to the server",
+    "❌ تعذّر الاتصال: {err}": "❌ Connection failed: {err}",
+    "أدخل عنوان الخادم واسم النموذج أولاً":
+        "Enter the server URL and model name first",
+    "⏳ جارٍ استخراج النص عبر Unlimited-OCR (قد يستغرق دقائق)…":
+        "⏳ Extracting text with Unlimited-OCR (may take minutes)…",
+    "⏳ جارٍ بناء PDF قابل للبحث…": "⏳ Building a searchable PDF…",
+    "📝 النص أيضاً في: {out}": "📝 Text also saved to: {out}",
+    "📝 النص محفوظ في: {out}": "📝 Text saved to: {out}",
+    "✅ استُخرج النص ({pages} صفحة)": "✅ Text extracted ({pages} pages)",
+    "⚠️ اضبط خادم Unlimited-OCR في تبويب OCR أولاً":
+        "⚠️ Configure the Unlimited-OCR server in the OCR tab first",
+    "استخدم Unlimited-OCR للمستندات الممسوحة تلقائياً":
+        "Use Unlimited-OCR automatically for scanned documents",
+    "يتطلب ضبط خادم Unlimited-OCR في تبويب OCR":
+        "Requires configuring the Unlimited-OCR server in the OCR tab",
+    "reportlab غير مثبّت أو لا يوجد خط عربي — حُفظ النص فقط":
+        "reportlab is not installed or no Arabic font was found — only the text was saved",
+    "لا يوجد نص في نتيجة النموذج": "The model returned no text",
 
     # ================= محرر الصفحات =================
     "محرر الصفحات": "Page Editor",
@@ -454,6 +486,10 @@ EN_TEXT = {
     "(لا توجد إجابة)": "(No answer)",
     "تمت الإجابة": "Answer ready",
     "خطأ: {err}": "Error: {err}",
+    "لا يوجد نص قابل للاستخراج في الملف.\n"
+    "جرّب أولاً أداة OCR للمستندات الممسوحة.":
+        "There is no extractable text in the file.\n"
+        "Try the OCR tool for scanned documents first.",
 
     # ================= لوحة الأوامر =================
     "Enter للانتقال  •  Esc للإغلاق": "Enter to jump  •  Esc to close",
@@ -529,6 +565,24 @@ EN_PATTERNS = [
      r"Original page \1 (rotated \2°)"),
     # رسالة التقدم في الأرشيف
     (re.compile(r"^📦 فك ضغط: (.+)$"), r"📦 Extracting: \1"),
+    # Unlimited-OCR
+    (re.compile(r"^Unlimited-OCR غير مُعدّ: أدخل عنوان الخادم واسم النموذج$"),
+     "Unlimited-OCR is not configured: enter the server URL and model name"),
+    (re.compile(r"^تعذّر الاتصال بخادم Unlimited-OCR: (.+)$", re.S),
+     r"Could not connect to the Unlimited-OCR server: \1"),
+    (re.compile(r"^خطأ من خادم Unlimited-OCR \((.+?)\): (.+)$", re.S),
+     r"Unlimited-OCR server error (\1): \2"),
+    (re.compile(r"^فشل OCR لجميع الصفحات: صفحة (\d+): (.+)$", re.S),
+     r"OCR failed for all pages: page \1: \2"),
+    (re.compile(r"^فشل OCR لجميع الصفحات: (.+)$", re.S),
+     r"OCR failed for all pages: \1"),
+    (re.compile(r"^تعذّر بناء PDF قابل للبحث: (.+)$", re.S),
+     r"Could not build a searchable PDF: \1"),
+    (re.compile(r"^صفحة (\d+): (.+)$", re.S), r"Page \1: \2"),
+    (re.compile(r"^⏳ جارٍ استخراج النص عبر Unlimited-OCR… الصفحة (\d+)/(\d+)$"),
+     r"⏳ Extracting text with Unlimited-OCR… page \1/\2"),
+    (re.compile(r"^⏳ جارٍ استخراج النص عبر Unlimited-OCR… الصفحات (\d+)-(\d+)/(\d+)$"),
+     r"⏳ Extracting text with Unlimited-OCR… pages \1-\2/\3"),
 ]
 
 

@@ -42,13 +42,10 @@ class MainWindow(QMainWindow):
         # الثيم من الإعدادات المحفوظة (auto/dark/light)
         self.theme_setting = "auto"
         try:
-            import json
-            spath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "settings.json")
-            if os.path.exists(spath):
-                with open(spath, "r", encoding="utf-8") as f:
-                    saved = json.load(f).get("theme", "auto")
-                if saved in ("auto", "dark", "light"):
-                    self.theme_setting = saved
+            from core import app_settings
+            saved = app_settings.load().get("theme", "auto")
+            if saved in ("auto", "dark", "light"):
+                self.theme_setting = saved
         except Exception:
             pass
         self._resolved = None
@@ -106,15 +103,8 @@ class MainWindow(QMainWindow):
     def _persist_theme(self):
         """يحفظ اختيار الثيم حتى يعود التطبيق بنفس الوضع لاحقاً"""
         try:
-            import json
-            path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "settings.json")
-            data = {}
-            if os.path.exists(path):
-                with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-            data["theme"] = self.theme_setting
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+            from core import app_settings
+            app_settings.save({"theme": self.theme_setting})
         except Exception:
             pass  # الحفظ الاختياري — لا نمنع التطبيق من العمل
 

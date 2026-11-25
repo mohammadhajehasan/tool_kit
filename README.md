@@ -5,7 +5,7 @@
 ![Build](https://github.com/mohammadhajehasan/tool_kit/actions/workflows/build.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![PySide6](https://img.shields.io/badge/PySide6-6.11-green)
-![Release](https://img.shields.io/badge/Release-v2.0.2-8B5CF6)
+![Release](https://img.shields.io/badge/Release-v2.1.0-8B5CF6)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## 🖼️ لقطات الشاشة
@@ -34,7 +34,7 @@
 | 📤 **PDF إلى صور** | JPG/PNG بجودة ودقة وصفحات مختارة (PyMuPDF) |
 | 📃 **نصوص وصور** | استخراج نص الملف كاملاً إلى txt (UTF-8) أو كل الصور المضمّنة بجودتها الأصلية |
 | 📊 **تصدير Word/Excel** | DOCX عبر pdf2docx وجداول XLSX عبر pdfplumber |
-| 🔍 **OCR** | الممسوح ضوئياً ← PDF قابل للبحث (Tesseract، عربي+إنجليزي) |
+| 🔍 **OCR** | الممسوح ضوئياً ← PDF قابل للبحث + TXT (Tesseract محلياً أو **Unlimited-OCR** عبر خادم) |
 
 ### التحرير والحماية
 | الأداة | الوصف |
@@ -48,8 +48,16 @@
 | الأداة | الوصف |
 |--------|-------|
 | ⚖️ **مقارنة PDF** | فروقات نصية ملوّنة بين نسختين |
-| 🤖 **مساعد ذكي** | تلخيص وأسئلة محلياً عبر Ollama أو API اختياري |
+| 🤖 **مساعد ذكي** | تلخيص وأسئلة محلياً عبر Ollama أو API اختياري + استخراج تلقائي للمستندات الممسوحة عبر Unlimited-OCR |
 | 📦 **فك ضغط الأرشيفات** | ZIP/TAR/7z/RAR مع حماية Zip-Slip وإصلاح أسماء الملفات العربية المشوهة |
+
+## 🆕 ما الجديد في v2.1.0
+
+- **🔍 محرك Unlimited-OCR (Baidu)** — محرك OCR ثانٍ عبر خادم SGLang/vLLM متوافق مع OpenAI، يتعامل مع المستندات الممسوحة متعددة الصفحات (عربي/إنجليزي/جداول) ويُنتج PDF قابلاً للبحث + ملف TXT.
+- **🤖 دمج مع المساعد الذكي** — خيار «استخدام Unlimited-OCR للمستندات الممسوحة تلقائياً»: عند غياب طبقة النص يُستخرج المحتوى أولاً ثم يُرسل إلى Ollama/API، مع عرض تقدم المعالجة.
+- **🧭 تبويب OCR تفاعلي** — اختيار المحرك (Tesseract محلي / Unlimited-OCR خادم)، حقول عنوان الخادم واسم النموذج ومفتاح API، زر **فحص الاتصال**، وزر إلغاء أثناء المعالجة.
+- **📄 طبقة نص مخفية عالية الجودة** — بناء عبر `reportlab` + `python-bidi` فوق الصفحات الأصلية دون إعادة ضغط الصور، مع الحفاظ على قابلية البحث والنسخ.
+- **⚙️ إعدادات موحّدة تعمل داخل exe** — `core/app_settings.py` يحفظ اللغة والثيم والمفتاح وإعدادات الخادم في `%LOCALAPPDATA%\PDF_Toolbox\settings.json` بدل المجلد المؤقت.
 
 ## 🆕 ما الجديد في v2.0.2
 
@@ -111,6 +119,10 @@ python main.py stamp input.pdf --watermark "نسخة غير رسمية" --number
 python main.py extract input.pdf --text
 python main.py extract input.pdf --images
 python main.py repair broken.pdf -o fixed.pdf
+
+# OCR: Tesseract محلياً أو خادم Unlimited-OCR
+python main.py ocr scanned.pdf --engine tesseract --lang ara+eng
+python main.py ocr scanned.pdf --engine unlimited --url http://127.0.0.1:10000 --model Unlimited-OCR-2
 ```
 
 ## 🎨 التصميم والتجربة
@@ -139,9 +151,38 @@ python main.py --help   # مساعدة سطر الأوامر
 ```
 
 > **ملاحظات تشغيل:**
-> - **OCR:** يتطلب [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) مع حزمتي `ara` و`eng` + مكتبة `pytesseract`.
+> - **OCR:** يتطلب [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) مع حزمتي `ara` و`eng` + مكتبة `pytesseract` — أو خادم Unlimited-OCR (انظر أدناه).
 > - **المساعد الذكي:** يتطلب [Ollama](https://ollama.com/) محلياً (مثل `ollama run llama3.2`) أو مفتاح API اختياري.
 > - **اللغة:** التبديل بين العربية والإنجليزية يغطي الواجهة بالكامل: كل التبويبات، الشرح، الخيارات، رسائل الحالة والإشعارات، ونصوص الرسم البياني (إعادة تشغيل واحدة لتطبيق الاتجاه).
+
+## 🔍 Unlimited-OCR عبر خادم بعيد
+
+يدعم التطبيق نموذج [Unlimited-OCR](https://github.com/baidu/Unlimited-OCR) من Baidu كمحرك OCR ثانٍ (إلى جانب Tesseract) عبر أي خادم متوافق مع OpenAI، ويُستخدم أيضاً تلقائياً في المساعد الذكي عندما يكون الملف ممسوحاً بلا طبقة نص.
+
+> **لماذا خادم؟** النموذج ثقيل ويتطلب GPU بذاكرة كبيرة (التوثيق يذكر A800-80GB)، لذا لا يُشغَّل داخل التطبيق محلياً على أجهزة عادية.
+
+**1) شغّل الخادم** على جهاز/سحابة فيه GPU (اتبع توثيق المستودع الأصلي):
+
+```bash
+python -m sglang.launch_server --model-path <مسار-النموذج> \
+    --served-model-name Unlimited-OCR-2 --port 10000
+```
+
+**2) اضبط الاتصال من التطبيق** في تبويب **OCR**:
+- اختر المحرك: **Unlimited-OCR (خادم)**.
+- عنوان الخادم: مثل `http://127.0.0.1:10000` أو `http://SERVER_IP:10000`.
+- اسم النموذج: `Unlimited-OCR-2` (أو ما يطابق `--served-model-name`).
+- مفتاح API إن كان الخادم يتطلبه.
+- اضغط **فحص الاتصال** للتأكد، ثم **تنفيذ**.
+
+**3) الناتج:**
+- `اسم_الملف_OCR.pdf` — الصفحات الأصلية مع طبقة نص مخفية قابلة للبحث والنسخ (عربي/إنجليزي).
+- `اسم_الملف_OCR.txt` — النص الكامل المستخرج (UTF-8) وهو المرجع الأدق عند اختلاط العربية بالأرقام في سطر واحد.
+
+**المساعد الذكي:** فعّل خيار «استخدم Unlimited-OCR للمستندات الممسوحة تلقائياً»؛ عند غياب طبقة النص يُستخرج النص أولاً ثم يُرسل إلى Ollama/API. إعدادات الخادم مشتركة مع تبويب OCR.
+
+> تُحفظ الإعدادات في `settings.json` بجانب التطبيق (وفي نسخة exe داخل `%LOCALAPPDATA%\PDF_Toolbox\settings.json`).
+
 
 ## 📦 بناء الـ exe
 
@@ -151,7 +192,7 @@ python -m PyInstaller PDF_Toolbox.spec --noconfirm --clean
 
 # أو مثبّت ويندوز (يتطلب Inno Setup 6)
 ISCC.exe installer\PDF_Toolbox.iss
-# الناتج: dist/installer/PDF_Toolbox_Setup_v2.0.2.exe
+# الناتج: dist/installer/PDF_Toolbox_Setup_v2.1.0.exe
 ```
 
 ## 🏗️ البنية
@@ -172,6 +213,8 @@ pdf_toolbox/
 │   ├── protect.py          # تشفير AES-256 وإزالته (pikepdf)
 │   ├── repair.py           # إصلاح الملفات التالفة
 │   ├── ocr.py              # التعرف الضوئي (Tesseract، اختياري)
+│   ├── unlimited_ocr.py    # عميل Unlimited-OCR عبر SGLang/vLLM + طبقة نص مخفية
+│   ├── app_settings.py     # مسار settings.json الموحّد (يعمل داخل exe)
 │   ├── export.py           # تصدير Word/Excel
 │   ├── pdf_diff.py         # مقارنة ملفين
 │   ├── ai_assistant.py     # المساعد الذكي (Ollama / API)
@@ -206,6 +249,7 @@ pdf_toolbox/
 - **py7zr / rarfile** — أرشيفات 7z وRAR (اختيارية)
 - **pdf2docx / pdfplumber / openpyxl** — تصدير Word/Excel
 - **pytesseract** — OCR (اختياري، يتطلب Tesseract)
+- **reportlab + python-bidi** — طبقة النص المخفية في PDF الخاص بـ Unlimited-OCR (ترتيب بصري متوافق مع البحث العربي)
 
 ## 📄 الترخيص
 

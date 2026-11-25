@@ -13,8 +13,20 @@ class AiError(Exception):
     pass
 
 
-def extract_document_text(path: str, max_chars: int = 12000) -> str:
-    """يستخرج نص PDF مع قصّه لحد أقصى مناسب للنماذج الخفيفة."""
+def extract_document_text(
+    path: str,
+    max_chars: int = 12000,
+    *,
+    ocr_fallback: bool = False,
+    ocr_config: dict | None = None,
+    cancel_check=None,
+    progress=None,
+) -> str:
+    """يستخرج نص PDF مع قصّه لحد أقصى مناسب للنماذج الخفيفة.
+
+    إن كانت الصفحات ممسوحة (بلا طبقة نص) و``ocr_fallback`` مفعّلاً،
+    يُستخرج النص عبر Unlimited-OCR ثم يُعاد استخدامه كالمعتاد.
+    """
     try:
         import fitz
     except ImportError as e:
@@ -25,10 +37,13 @@ def extract_document_text(path: str, max_chars: int = 12000) -> str:
     try:
         chunks = []
         total = 0
+        pages_with_text = 0
+        page_count = len(doc)
         for i, page in enumerate(doc):
             t = (page.get_text("text") or "").strip()
             if not t:
                 continue
+            pages_with_text += 1
             header = f"\n--- صفحة {i + 1} ---\n"
             piece = header + t
             if total + len(piece) > max_chars:
@@ -39,14 +54,36 @@ def extract_document_text(path: str, max_chars: int = 12000) -> str:
             chunks.append(piece)
             total += len(piece)
         text = "".join(chunks).strip()
-        if not text:
-            raise AiError(
-                "لا يوجد نص قابل للاستخراج في الملف.\n"
-                "جرّب أولاً أداة OCR للمستندات الممسوحة."
-            )
-        return text
     finally:
         doc.close()
+
+    # مستند ممسوح أو شبه فارغ: جرّب Unlimited-OCR إن كان مفعّلاً
+    sparse = page_count > 0 and (len(text) < 40 or pages_with_text < page_count * 0.5)
+    if sparse and ocr_fallback:
+        from core import unlimited_ocr
+        if cancel_check and cancel_check():
+            raise InterruptedError("تم إلغاء العملية")
+        try:
+            ocr_text = unlimited_ocr.extract_text(
+                path, ocr_config, max_chars=max_chars,
+                cancel_check=cancel_check, progress=progress)
+        except InterruptedError:
+            raise
+        except Exception as e:
+            if text:
+                return text
+            raise AiError(str(e)) from e
+        if ocr_text.strip():
+            return ocr_text
+        if text:
+            return text
+
+    if not text:
+        raise AiError(
+            "لا يوجد نص قابل للاستخراج في الملف.\n"
+            "جرّب أولاً أداة OCR للمستندات الممسوحة."
+        )
+    return text
 
 
 def ollama_available(base_url: str = "http://127.0.0.1:11434") -> bool:
@@ -129,7 +166,10 @@ def ask_about_document(
     api_base: str = "https://api.openai.com/v1",
     ollama_base: str = "http://127.0.0.1:11434",
     lang: str = "ar",
+    ocr_fallback: bool = False,
+    ocr_config: dict | None = None,
     cancel_check=None,
+    progress=None,
 ) -> str:
     """
     يسأل عن محتوى المستند.
@@ -139,7 +179,13 @@ def ask_about_document(
     english = lang == "en"
     if cancel_check and cancel_check():
         raise AiError("Operation cancelled" if english else "تم إلغاء العملية")
-    text = extract_document_text(pdf_path)
+    text = extract_document_text(
+        pdf_path,
+        ocr_fallback=ocr_fallback,
+        ocr_config=ocr_config,
+        cancel_check=cancel_check,
+        progress=progress,
+    )
     if english:
         system = (
             "You are a privacy-preserving local document assistant. "
@@ -184,7 +230,10 @@ def summarize_document(
     api_base: str = "https://api.openai.com/v1",
     ollama_base: str = "http://127.0.0.1:11434",
     lang: str = "ar",
+    ocr_fallback: bool = False,
+    ocr_config: dict | None = None,
     cancel_check=None,
+    progress=None,
 ) -> str:
     question = (
         "Summarize this document in clear bullet points and mention the key clauses if present (contracts/reports)."
@@ -200,5 +249,8 @@ def summarize_document(
         api_base=api_base,
         ollama_base=ollama_base,
         lang=lang,
+        ocr_fallback=ocr_fallback,
+        ocr_config=ocr_config,
         cancel_check=cancel_check,
+        progress=progress,
     )
