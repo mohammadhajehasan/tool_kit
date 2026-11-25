@@ -32,7 +32,12 @@ DEFAULTS = {
     "unlimited_ocr_crop_mode": True,
     "unlimited_ocr_ngram": False,
     "unlimited_ocr_ai_ocr": True,
+    "unlimited_ocr_mode": "sglang",
 }
+
+# وضع Ollama المحلي: GGUF مبني على Unlimited-OCR v1 (لا يحتاج إنترنت بعد التنزيل)
+OLLAMA_DEFAULT_URL = "http://127.0.0.1:11434/v1"
+OLLAMA_DEFAULT_MODEL = "richardyoung/unlimited-ocr"
 
 # النموذج لا يخرج Markdown بل كتل تخطيط: <BLOCK>label<LEVELn>[x1,y1,x2,y2]<FORK>...
 _PAGE_RE = re.compile(r"<\s*/?\s*PAGE\s*\d*\s*>", re.I)
@@ -53,6 +58,12 @@ _TOKEN_RE = re.compile(
 )
 _TAG_RE = re.compile(r"<[^<>\n]{1,80}>")
 _SKIP_LABELS = {"image", "figure", "picture", "chart", "img", "seal"}
+
+# صيغة v1 التي تُخرجها نماذج GGUF على Ollama: label [x1,y1,x2,y2]text
+_OLLAMA_LINE_RE = re.compile(
+    r"^\s*([A-Za-z_][A-Za-z_0-9]*)\s*\[\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\]\s*(.*)$",
+    re.M,
+)
 
 
 class UnlimitedOcrError(Exception):
@@ -87,6 +98,26 @@ def load_config() -> dict:
 
 def save_config(updates: dict) -> None:
     app_settings.save(updates)
+
+
+def _mode(cfg: dict | None = None) -> str:
+    cfg = cfg or load_config()
+    return "ollama" if str(cfg.get("unlimited_ocr_mode") or "sglang").lower() == "ollama" else "sglang"
+
+
+def _is_ollama(cfg: dict | None = None) -> bool:
+    return _mode(cfg) == "ollama"
+
+
+def apply_ollama_defaults(cfg: dict) -> dict:
+    """يعبّأ عنوان/اسم نموذج Ollama المحلي إن لم يكن المستخدم قد أدخلهما."""
+    cfg.setdefault("unlimited_ocr_url", OLLAMA_DEFAULT_URL)
+    cfg.setdefault("unlimited_ocr_model", OLLAMA_DEFAULT_MODEL)
+    if not str(cfg.get("unlimited_ocr_url") or "").strip():
+        cfg["unlimited_ocr_url"] = OLLAMA_DEFAULT_URL
+    if not str(cfg.get("unlimited_ocr_model") or "").strip():
+        cfg["unlimited_ocr_model"] = OLLAMA_DEFAULT_MODEL
+    return cfg
 
 
 def is_configured(cfg: dict | None = None) -> bool:
@@ -185,6 +216,7 @@ def _processor_str() -> str:
 
 
 def _build_payload(images: list[bytes], cfg: dict, max_tokens: int | None = None) -> dict:
+    ollama = _is_ollama(cfg)
     content = []
     for data in images:
         b64 = base64.b64encode(data).decode("ascii")
@@ -194,29 +226,33 @@ def _build_payload(images: list[bytes], cfg: dict, max_tokens: int | None = None
         })
     content.append({
         "type": "text",
-        "text": "<PAGE><image>" * len(images) + "Multi page parsing.",
+        # v1 (Ollama GGUF) يتوقع أمر `ocr` وصورة واحدة؛ v2 (SGLang) يستخدم تعدد الصفحات
+        "text": "ocr" if ollama else "<PAGE><image>" * len(images) + "Multi page parsing.",
     })
     tokens_per_page = int(cfg.get("unlimited_ocr_tokens_per_page") or 8000)
     payload = {
-        "model": str(cfg.get("unlimited_ocr_model") or "Unlimited-OCR-2"),
+        "model": str(cfg.get("unlimited_ocr_model")
+                     or (OLLAMA_DEFAULT_MODEL if ollama else "Unlimited-OCR-2")),
         "messages": [{"role": "user", "content": content}],
-        "max_tokens": max(1, int(max_tokens or tokens_per_page * len(images))),
+        "max_tokens": max(1, int(max_tokens or tokens_per_page * (1 if ollama else len(images)))),
         "temperature": 0,
-        "skip_special_tokens": False,
-        "images_config": {"crop_mode": bool(cfg.get("unlimited_ocr_crop_mode", True))},
         "stream": True,
     }
-    if cfg.get("unlimited_ocr_ngram"):
-        processor = _processor_str()
-        if processor:
-            payload["custom_logit_processor"] = processor
-            payload["custom_params"] = {
-                "ngram_size": 35,
-                "window_size": 1024 if len(images) > 1 else 128,
-                "page_token_id": 128827,
-                "eos_token_id": 1,
-                "max_page_tokens": 20000,
-            }
+    if not ollama:
+        # حقول خاصة بـ SGLang — Ollama يتجاهلها أو يرفضها
+        payload["skip_special_tokens"] = False
+        payload["images_config"] = {"crop_mode": bool(cfg.get("unlimited_ocr_crop_mode", True))}
+        if cfg.get("unlimited_ocr_ngram"):
+            processor = _processor_str()
+            if processor:
+                payload["custom_logit_processor"] = processor
+                payload["custom_params"] = {
+                    "ngram_size": 35,
+                    "window_size": 1024 if len(images) > 1 else 128,
+                    "page_token_id": 128827,
+                    "eos_token_id": 1,
+                    "max_page_tokens": 20000,
+                }
     return payload
 
 
@@ -331,6 +367,12 @@ def _request_batch(images: list[bytes], cfg: dict, api_key: str,
                     payload.pop("custom_logit_processor", None)
                     payload.pop("custom_params", None)
                     continue
+            if e.code == 400 and _is_ollama(cfg) and attempts <= 3:
+                # Ollama قد يرفض max_tokens أكبر من نافذة السياق — قلّله تدريجياً
+                current = int(payload.get("max_tokens") or 0)
+                if current > 1024:
+                    payload["max_tokens"] = max(1024, current // 2)
+                    continue
             raise UnlimitedOcrError(
                 f"خطأ من خادم Unlimited-OCR ({e.code}): {body[:400]}"
             ) from e
@@ -360,8 +402,48 @@ def _clean_fragment(text: str) -> str:
     return "\n".join(lines).strip()
 
 
-def parse_pages(raw: str, expected_pages: int = 0) -> list[Page]:
-    """يقسم مخرجات النموذج على <PAGE> ويحوّل كل صفحة إلى كتل نصية."""
+def parse_ollama_pages(raw: str, expected_pages: int = 0) -> list[Page]:
+    """يحلّل مخرجات GGUF/v1: سطر لكل منطقة بصيغة `label [x1,y1,x2,y2]نص`."""
+    blocks: list[Block] = []
+    last: Block | None = None
+    for line in (raw or "").splitlines():
+        if not line.strip():
+            continue
+        match = _OLLAMA_LINE_RE.match(line)
+        if match:
+            label = (match.group(1) or "text").lower()
+            bbox = tuple(int(match.group(k)) for k in (2, 3, 4, 5))  # type: ignore[assignment]
+            body = _clean_fragment(match.group(6))
+            if not body or (label in _SKIP_LABELS and body.strip(" []()") in ("", "image", "figure")):
+                last = None
+                continue
+            if label.startswith("title"):
+                body = "# " + body
+            last = Block(label, None, bbox, body)
+            blocks.append(last)
+        else:
+            cleaned = _clean_fragment(line)
+            if not cleaned:
+                continue
+            if last is not None:
+                last.text = (last.text + "\n" + cleaned).strip()
+            else:
+                last = Block("text", None, None, cleaned)
+                blocks.append(last)
+    pages = [Page(blocks)]
+    if expected_pages > 1:
+        while len(pages) < expected_pages:
+            pages.append(Page())
+        pages = pages[:expected_pages]
+    return pages
+
+
+def parse_pages(raw: str, expected_pages: int = 0, mode: str | None = None) -> list[Page]:
+    """يقسم مخرجات النموذج إلى صفحات، ويتعامل مع صيغتي v2 و v1/Ollama."""
+    if mode == "ollama" or (
+        mode is None and _OLLAMA_LINE_RE.search(raw or "") and not _PAGE_RE.search(raw or "")
+    ):
+        return parse_ollama_pages(raw, expected_pages=expected_pages)
     segments = _PAGE_RE.split(raw or "")
     if segments and not segments[0].strip():
         segments.pop(0)
@@ -597,6 +679,8 @@ def extract_pages(pdf_path: str, cfg: dict | None = None, *,
                   progress=None) -> list[Page]:
     """يرسل صفحات PDF إلى الخادم ويعيد نصاً منظماً لكل صفحة."""
     cfg = cfg or load_config()
+    if _is_ollama(cfg):
+        apply_ollama_defaults(cfg)
     if not is_configured(cfg):
         raise UnlimitedOcrError("Unlimited-OCR غير مُعدّ: أدخل عنوان الخادم واسم النموذج")
     if cancel_check and cancel_check():
@@ -605,7 +689,12 @@ def extract_pages(pdf_path: str, cfg: dict | None = None, *,
     images = _render_pages(pdf_path, int(dpi or cfg.get("unlimited_ocr_dpi") or 200), cancel_check)
     api_key = str(cfg.get("unlimited_ocr_api_key") or "")
     timeout = float(cfg.get("unlimited_ocr_timeout") or 900)
-    batch_size = max(1, int(cfg.get("unlimited_ocr_pages_per_request") or 4))
+    mode = _mode(cfg)
+    if mode == "ollama":
+        apply_ollama_defaults(cfg)
+        batch_size = 1  # نموذج GGUF/v1 يعالج صورة واحدة في كل طلب
+    else:
+        batch_size = max(1, int(cfg.get("unlimited_ocr_pages_per_request") or 4))
     total = len(images)
     parsed_by_page: list[Page | None] = [None] * total
     errors: list[str] = []
@@ -620,7 +709,7 @@ def extract_pages(pdf_path: str, cfg: dict | None = None, *,
             progress(_batch_label(start, end, total))
         try:
             raw = _request_batch(chunk, cfg, api_key, timeout, cancel_check)
-            parsed = parse_pages(raw, expected_pages=len(chunk))
+            parsed = parse_pages(raw, expected_pages=len(chunk), mode=mode)
             for offset in range(len(chunk)):
                 parsed_by_page[index + offset] = parsed[offset]
         except InterruptedError:
@@ -638,7 +727,7 @@ def extract_pages(pdf_path: str, cfg: dict | None = None, *,
                         progress(_batch_label(page_no, page_no, total))
                     try:
                         raw = _request_batch([image], cfg, api_key, timeout, cancel_check)
-                        single = parse_pages(raw, expected_pages=1)
+                        single = parse_pages(raw, expected_pages=1, mode=mode)
                         parsed_by_page[index + offset] = single[0]
                     except InterruptedError:
                         raise

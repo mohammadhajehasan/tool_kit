@@ -94,7 +94,7 @@ def run_cli(argv: list[str]) -> int:
     oc = sub.add_parser("ocr", help="التعرف الضوئي ← PDF قابل للبحث")
     oc.add_argument("input")
     oc.add_argument("-o", "--out", default=None)
-    oc.add_argument("--engine", choices=["tesseract", "unlimited"], default="tesseract")
+    oc.add_argument("--engine", choices=["tesseract", "unlimited", "ollama"], default="tesseract")
     oc.add_argument("--lang", default="ara+eng", help="لغة Tesseract مثل ara+eng")
     oc.add_argument("--dpi", type=int, default=None)
     oc.add_argument("--url", default=None, help="عنوان خادم Unlimited-OCR")
@@ -209,9 +209,12 @@ def run_cli(argv: list[str]) -> int:
 
     elif args.cmd == "ocr":
         out = args.out or out_default(args.input, "_OCR.pdf")
-        if args.engine == "unlimited":
+        if args.engine in ("unlimited", "ollama"):
             from core import unlimited_ocr as U
             cfg = U.load_config()
+            cfg["unlimited_ocr_mode"] = "ollama" if args.engine == "ollama" else "sglang"
+            if args.engine == "ollama":
+                U.apply_ollama_defaults(cfg)
             if args.url:
                 cfg["unlimited_ocr_url"] = args.url
             if args.model:

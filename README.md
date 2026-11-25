@@ -5,7 +5,7 @@
 ![Build](https://github.com/mohammadhajehasan/tool_kit/actions/workflows/build.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![PySide6](https://img.shields.io/badge/PySide6-6.11-green)
-![Release](https://img.shields.io/badge/Release-v2.1.0-8B5CF6)
+![Release](https://img.shields.io/badge/Release-v2.1.1-8B5CF6)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## 🖼️ لقطات الشاشة
@@ -50,6 +50,13 @@
 | ⚖️ **مقارنة PDF** | فروقات نصية ملوّنة بين نسختين |
 | 🤖 **مساعد ذكي** | تلخيص وأسئلة محلياً عبر Ollama أو API اختياري + استخراج تلقائي للمستندات الممسوحة عبر Unlimited-OCR |
 | 📦 **فك ضغط الأرشيفات** | ZIP/TAR/7z/RAR مع حماية Zip-Slip وإصلاح أسماء الملفات العربية المشوهة |
+
+## 🆕 ما الجديد في v2.1.1
+
+- **🦙 وضع Ollama المحلي لـ Unlimited-OCR** — خيار ثالث في تبويب OCR: **Unlimited-OCR (Ollama محلي)** يعمل بدون إنترنت بعد تنزيل النموذج مرة واحدة (`ollama pull richardyoung/unlimited-ocr`). العنوان والاسم يُعبّآن تلقائياً (`http://127.0.0.1:11434/v1` / `richardyoung/unlimited-ocr`) فلا يحتاج المستخدم لإدخال أي شي.
+- **🔄 مساران مستقلان** — يختار المستخدم بين: خادم SGLang/vLLM عن بُعد (نموذج v2، `Unlimited-OCR-2`) أو نموذج Ollama محلي (GGUF مبني على v1). كلا المسارين يُنتجان نفس الناتج: PDF قابل للبحث + TXT، ويُستخدمان أيضاً في المساعد الذكي.
+- **🧩 محلل صيغة v1** — تحويل مخرجات `label [x1,y1,x2,y2]نص` إلى كتل نصية مع إحداثيات، وإرسال أمر `ocr` بدل `Multi page parsing.` مع صفحة واحدة لكل طلب، وإسقاط حقول SGLang غير المدعومة في Ollama.
+- **⌨️ CLI** — أمر جديد: `python main.py ocr scanned.pdf --engine ollama`.
 
 ## 🆕 ما الجديد في v2.1.0
 
@@ -120,9 +127,10 @@ python main.py extract input.pdf --text
 python main.py extract input.pdf --images
 python main.py repair broken.pdf -o fixed.pdf
 
-# OCR: Tesseract محلياً أو خادم Unlimited-OCR
+# OCR: Tesseract محلياً / خادم Unlimited-OCR / Ollama محلي
 python main.py ocr scanned.pdf --engine tesseract --lang ara+eng
 python main.py ocr scanned.pdf --engine unlimited --url http://127.0.0.1:10000 --model Unlimited-OCR-2
+python main.py ocr scanned.pdf --engine ollama   # يستخدم richardyoung/unlimited-ocr محلياً
 ```
 
 ## 🎨 التصميم والتجربة
@@ -155,31 +163,41 @@ python main.py --help   # مساعدة سطر الأوامر
 > - **المساعد الذكي:** يتطلب [Ollama](https://ollama.com/) محلياً (مثل `ollama run llama3.2`) أو مفتاح API اختياري.
 > - **اللغة:** التبديل بين العربية والإنجليزية يغطي الواجهة بالكامل: كل التبويبات، الشرح، الخيارات، رسائل الحالة والإشعارات، ونصوص الرسم البياني (إعادة تشغيل واحدة لتطبيق الاتجاه).
 
-## 🔍 Unlimited-OCR عبر خادم بعيد
+## 🔍 Unlimited-OCR: خادم بعيد أو Ollama محلي
 
-يدعم التطبيق نموذج [Unlimited-OCR](https://github.com/baidu/Unlimited-OCR) من Baidu كمحرك OCR ثانٍ (إلى جانب Tesseract) عبر أي خادم متوافق مع OpenAI، ويُستخدم أيضاً تلقائياً في المساعد الذكي عندما يكون الملف ممسوحاً بلا طبقة نص.
+يدعم التطبيق نموذج [Unlimited-OCR](https://github.com/baidu/Unlimited-OCR) من Baidu كمحرك OCR ثانٍ (إلى جانب Tesseract) عبر **مسارين تختار بينهما في تبويب OCR**:
 
-> **لماذا خادم؟** النموذج ثقيل ويتطلب GPU بذاكرة كبيرة (التوثيق يذكر A800-80GB)، لذا لا يُشغَّل داخل التطبيق محلياً على أجهزة عادية.
+| المسار | الخيار في الواجهة | النموذج | الإعداد |
+|---|---|---|---|
+| **Ollama محلي** | Unlimited-OCR (Ollama محلي) | `richardyoung/unlimited-ocr` (GGUF v1) | يُعبّأ تلقائياً، يعمل بدون إنترنت بعد التنزيل |
+| **خادم بعيد** | Unlimited-OCR (خادم) | `baidu/Unlimited-OCR-2` (v2) | تدخل العنوان/الاسم بنفسك، يحتاج خادم GPU |
 
-**1) شغّل الخادم** على جهاز/سحابة فيه GPU (اتبع توثيق المستودع الأصلي):
+كلا المسارين يُنتجان `اسم_الملف_OCR.pdf` (طبقة نص مخفية قابلة للبحث والنسخ عربي/إنجليزي) + `اسم_الملف_OCR.txt` (UTF-8، وهو المرجع الأدق عند اختلاط العربية بالأرقام)، ويُستخدمان تلقائياً في المساعد الذكي للمستندات الممسوحة.
 
+### أ) المسار المحلي — Ollama (بدون إنترنت بعد التنزيل)
+
+**مرة واحدة على جهاز المستخدم:**
 ```bash
-python -m sglang.launch_server --model-path <مسار-النموذج> \
-    --served-model-name Unlimited-OCR-2 --port 10000
+# ثبّت Ollama من https://ollama.com ثم نزّل النموذج:
+ollama pull richardyoung/unlimited-ocr   # ≈2.8GB — مناسب لـ 4GB VRAM
 ```
 
-**2) اضبط الاتصال من التطبيق** في تبويب **OCR**:
-- اختر المحرك: **Unlimited-OCR (خادم)**.
-- عنوان الخادم: مثل `http://127.0.0.1:10000` أو `http://SERVER_IP:10000`.
-- اسم النموذج: `Unlimited-OCR-2` (أو ما يطابق `--served-model-name`).
-- مفتاح API إن كان الخادم يتطلبه.
-- اضغط **فحص الاتصال** للتأكد، ثم **تنفيذ**.
+**في التطبيق:** اختر **Unlimited-OCR (Ollama محلي)**. العنوان `http://127.0.0.1:11434/v1` واسم النموذج `richardyoung/unlimited-ocr` يُعبّآن تلقائياً فلا يحتاج المستخدم كتابة أي شيء. اضغط **فحص الاتصال** ثم **تنفيذ**.
 
-**3) الناتج:**
-- `اسم_الملف_OCR.pdf` — الصفحات الأصلية مع طبقة نص مخفية قابلة للبحث والنسخ (عربي/إنجليزي).
-- `اسم_الملف_OCR.txt` — النص الكامل المستخرج (UTF-8) وهو المرجع الأدق عند اختلاط العربية بالأرقام في سطر واحد.
+> Ollama يستمع على `127.0.0.1` فقط، فلا يخرج الطلب للإنترنت. النموذج مبني على **v1**، لذا دقته أقل قليلاً من v2 في الجداول الكثيفة، لكن النص وطبقة البحث تعملان.
 
-**المساعد الذكي:** فعّل خيار «استخدم Unlimited-OCR للمستندات الممسوحة تلقائياً»؛ عند غياب طبقة النص يُستخرج النص أولاً ثم يُرسل إلى Ollama/API. إعدادات الخادم مشتركة مع تبويب OCR.
+### ب) المسار عن بُعد — SGLang/vLLM
+
+**1) شغّل الخادم** على جهاز/سحابة فيه GPU كبير (التوثيق يذكر A800-80GB):
+```bash
+python -m sglang.launch_server --model-path baidu/Unlimited-OCR-2 \
+    --served-model-name Unlimited-OCR-2 --host 0.0.0.0 --port 10000
+```
+راجع التوثيق الأصلي لبقية خيارات الذاكرة (`--mem-fraction-static`، `--max-prefill-tokens`، cuda graphs).
+
+**2) في تبويب OCR:** اختر **Unlimited-OCR (خادم)**، اكتب عنوان الخادم (مثل `http://SERVER_IP:10000`) واسم النموذج `Unlimited-OCR-2` والمفتاح إن وُجد، ثم **فحص الاتصال** ← **تنفيذ**.
+
+**المساعد الذكي:** فعّل خيار «استخدم Unlimited-OCR للمستندات الممسوحة تلقائياً»؛ عند غياب طبقة النص يُستخرج النص أولاً ثم يُرسل إلى Ollama/API. الإعدادات مشتركة مع تبويب OCR (أي مسار تختاره يُستخدم تلقائياً هنا).
 
 > تُحفظ الإعدادات في `settings.json` بجانب التطبيق (وفي نسخة exe داخل `%LOCALAPPDATA%\PDF_Toolbox\settings.json`).
 
@@ -192,7 +210,7 @@ python -m PyInstaller PDF_Toolbox.spec --noconfirm --clean
 
 # أو مثبّت ويندوز (يتطلب Inno Setup 6)
 ISCC.exe installer\PDF_Toolbox.iss
-# الناتج: dist/installer/PDF_Toolbox_Setup_v2.1.0.exe
+# الناتج: dist/installer/PDF_Toolbox_Setup_v2.1.1.exe
 ```
 
 ## 🏗️ البنية

@@ -53,6 +53,7 @@ class OcrTab(QWidget):
         self.engine_combo = QComboBox()
         self.engine_combo.addItem("Tesseract (محلي)", "tesseract")
         self.engine_combo.addItem("Unlimited-OCR (خادم)", "unlimited")
+        self.engine_combo.addItem("Unlimited-OCR (Ollama محلي)", "ollama")
         engine_row.addWidget(self.engine_combo)
         engine_row.addStretch()
         layout.addLayout(engine_row)
@@ -101,6 +102,12 @@ class OcrTab(QWidget):
         sv.addWidget(self.conn_label)
 
         layout.addWidget(self.server_box)
+
+        self.ollama_hint = QLabel(
+            "يتطلب تثبيت Ollama وتنزيل النموذج: ollama pull richardyoung/unlimited-ocr")
+        self.ollama_hint.setObjectName("hintLabel")
+        self.ollama_hint.setWordWrap(True)
+        layout.addWidget(self.ollama_hint)
 
         opts = QHBoxLayout()
         self.lang_label = QLabel("اللغة")
@@ -176,13 +183,22 @@ class OcrTab(QWidget):
     def _apply_config(self):
         cfg = self.cfg
         engine = str(cfg.get("ocr_engine") or "")
+        mode = str(cfg.get("unlimited_ocr_mode") or "sglang").lower()
+        if engine == "unlimited" and mode == "ollama":
+            engine = "ollama"
         if not engine:
             engine = "unlimited" if (U.is_configured(cfg) and not self.avail) else "tesseract"
         idx = self.engine_combo.findData(engine)
         self.engine_combo.setCurrentIndex(idx if idx >= 0 else 0)
 
-        self.url_edit.setText(str(cfg.get("unlimited_ocr_url") or ""))
-        self.model_edit.setText(str(cfg.get("unlimited_ocr_model") or ""))
+        url = str(cfg.get("unlimited_ocr_url") or "")
+        model = str(cfg.get("unlimited_ocr_model") or "")
+        if engine == "ollama":
+            defaults = U.apply_ollama_defaults({})
+            url = defaults["unlimited_ocr_url"]
+            model = defaults["unlimited_ocr_model"]
+        self.url_edit.setText(url)
+        self.model_edit.setText(model)
         self.key_edit.setText(str(cfg.get("unlimited_ocr_api_key") or ""))
 
         dpi = int(cfg.get("unlimited_ocr_dpi") or 200)
@@ -193,18 +209,30 @@ class OcrTab(QWidget):
         self.dpi_combo.setCurrentIndex(dpi_idx)
 
     def _is_unlimited(self) -> bool:
-        return self.engine_combo.currentData() == "unlimited"
+        return self.engine_combo.currentData() in ("unlimited", "ollama")
+
+    def _is_ollama(self) -> bool:
+        return self.engine_combo.currentData() == "ollama"
 
     def _on_engine_changed(self):
         unlimited = self._is_unlimited()
+        ollama = self._is_ollama()
         self.server_box.setVisible(unlimited)
+        self.ollama_hint.setVisible(ollama)
         self.lang_label.setVisible(not unlimited)
         self.lang_combo.setVisible(not unlimited)
         if self.hint_card is not None:
             self.hint_card.setVisible(not unlimited and not self.avail)
+        if ollama:
+            defaults = U.apply_ollama_defaults({})
+            self.url_edit.setText(defaults["unlimited_ocr_url"])
+            self.model_edit.setText(defaults["unlimited_ocr_model"])
         self._refresh_run_state()
         try:
-            U.save_config({"ocr_engine": self.engine_combo.currentData()})
+            updates = {"ocr_engine": self.engine_combo.currentData()}
+            if unlimited:
+                updates["unlimited_ocr_mode"] = "ollama" if ollama else "sglang"
+            U.save_config(updates)
         except Exception:
             pass
 
@@ -221,10 +249,19 @@ class OcrTab(QWidget):
 
     def _collect_cfg(self, save: bool = True) -> dict:
         cfg = dict(self.cfg)
+        engine = self.engine_combo.currentData()
+        mode = "ollama" if engine == "ollama" else "sglang"
+        url = self.url_edit.text().strip()
+        model = self.model_edit.text().strip()
+        if mode == "ollama":
+            defaults = U.apply_ollama_defaults({})
+            url = url or defaults["unlimited_ocr_url"]
+            model = model or defaults["unlimited_ocr_model"]
         cfg.update({
-            "ocr_engine": self.engine_combo.currentData(),
-            "unlimited_ocr_url": self.url_edit.text().strip(),
-            "unlimited_ocr_model": self.model_edit.text().strip(),
+            "ocr_engine": engine,
+            "unlimited_ocr_mode": mode,
+            "unlimited_ocr_url": url,
+            "unlimited_ocr_model": model,
             "unlimited_ocr_api_key": self.key_edit.text().strip(),
             "unlimited_ocr_dpi": int(self.dpi_combo.currentData() or 200),
         })
@@ -233,6 +270,7 @@ class OcrTab(QWidget):
             try:
                 U.save_config({
                     "ocr_engine": cfg["ocr_engine"],
+                    "unlimited_ocr_mode": mode,
                     "unlimited_ocr_url": cfg["unlimited_ocr_url"],
                     "unlimited_ocr_model": cfg["unlimited_ocr_model"],
                     "unlimited_ocr_api_key": cfg["unlimited_ocr_api_key"],

@@ -307,6 +307,9 @@ EN_TEXT = {
     "المحرك:": "Engine:",
     "Tesseract (محلي)": "Tesseract (local)",
     "Unlimited-OCR (خادم)": "Unlimited-OCR (server)",
+    "Unlimited-OCR (Ollama محلي)": "Unlimited-OCR (local Ollama)",
+    "يتطلب تثبيت Ollama وتنزيل النموذج: ollama pull richardyoung/unlimited-ocr":
+        "Requires installing Ollama and pulling the model: ollama pull richardyoung/unlimited-ocr",
     "عنوان الخادم:": "Server URL:",
     "اسم النموذج:": "Model name:",
     "مفتاح API (اختياري)": "API key (optional)",
